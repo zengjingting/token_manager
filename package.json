@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "prestart": "lsof -ti:3333 | xargs kill -9 2>/dev/null || true",
     "start": "node server.js",
+    "predev": "lsof -ti:3333 | xargs kill -9 2>/dev/null || true",
     "dev": "node --watch server.js"
   },
   "dependencies": {
