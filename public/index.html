@@ -277,7 +277,7 @@ const T = {
     thIn:'输入', thOut:'输出', thCache:'缓存',
     thCost:'费用', thActivity:'最后活动', thModels:'模型',
     dsClaudeIn:'Claude 输入', dsClaudeOut:'Claude 输出', dsClaudeCache:'Claude 缓存',
-    dsCodexIn:'Codex 输入', dsCodexOut:'Codex 输出',
+    dsCodexIn:'Codex 输入', dsCodexOut:'Codex 输出', dsCodexCache:'Codex 缓存',
     inSub:'输入', outSub:'输出',
     tipTokens:  '输入 + 输出 + 缓存创建 + 缓存读取',
     tipCost:    'Claude + Codex 费用合计（USD）',
@@ -300,7 +300,7 @@ const T = {
     thIn:'IN', thOut:'OUT', thCache:'CACHE',
     thCost:'COST $', thActivity:'LAST ACTIVITY', thModels:'MODELS',
     dsClaudeIn:'Claude In', dsClaudeOut:'Claude Out', dsClaudeCache:'Claude Cache',
-    dsCodexIn:'Codex In', dsCodexOut:'Codex Out',
+    dsCodexIn:'Codex In', dsCodexOut:'Codex Out', dsCodexCache:'Codex Cache',
     inSub:'in', outSub:'out',
     tipTokens:  'input + output + cache_creation + cache_read',
     tipCost:    'Claude + Codex combined cost (USD)',
@@ -423,8 +423,9 @@ function renderTokenChart(report) {
         { label: t('dsClaudeIn'),    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(217,119,87,0.85)', stack: 'claude' },
         { label: t('dsClaudeOut'),   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(180,85,50,0.8)',   stack: 'claude' },
         { label: t('dsClaudeCache'), data: d.map(r => (r.claude?.cacheReadTokens||0)+(r.claude?.cacheCreationTokens||0)), backgroundColor: 'rgba(217,119,87,0.3)', stack: 'claude' },
-        { label: t('dsCodexIn'),     data: d.map(r => r.codex?.inputTokens         || 0), backgroundColor: 'rgba(59,130,246,0.8)',  stack: 'codex' },
-        { label: t('dsCodexOut'),    data: d.map(r => r.codex?.outputTokens        || 0), backgroundColor: 'rgba(59,130,246,0.5)',  stack: 'codex' }
+        { label: t('dsCodexIn'),    data: d.map(r => r.codex?.inputTokens      || 0), backgroundColor: 'rgba(59,130,246,0.85)', stack: 'codex' },
+        { label: t('dsCodexOut'),   data: d.map(r => r.codex?.outputTokens     || 0), backgroundColor: 'rgba(59,130,246,0.55)', stack: 'codex' },
+        { label: t('dsCodexCache'), data: d.map(r => r.codex?.cachedInputTokens || 0), backgroundColor: 'rgba(59,130,246,0.25)', stack: 'codex' }
       ]
     },
     options: {

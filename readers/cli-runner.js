@@ -6,12 +6,19 @@ const NODE    = '/opt/homebrew/opt/node@22/bin/node';
 const CCUSAGE = '/opt/homebrew/bin/ccusage';
 const CODEX   = '/opt/homebrew/bin/ccusage-codex';  // @ccusage/codex (NOT the OpenAI codex agent)
 
+// Use local date components — toISOString() converts to UTC which shifts the date in UTC+N zones
 function toYYYYMMDD(date) {
-  return date.toISOString().slice(0, 10).replace(/-/g, '');
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
 }
 
 function toISODate(date) {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function run(bin, args) {

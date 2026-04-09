@@ -86,10 +86,10 @@ function buildSummary(daily) {
       totalCost           += day.claude.totalCost;
     }
     if (day.codex) {
-      inputTokens         += day.codex.inputTokens;
-      outputTokens        += day.codex.outputTokens;
-      cacheCreationTokens += day.codex.cachedInputTokens || 0;
-      totalCost           += day.codex.totalCost;
+      inputTokens     += day.codex.inputTokens;
+      outputTokens    += day.codex.outputTokens;
+      cacheReadTokens += day.codex.cachedInputTokens || 0;  // Codex cache hits = read, not creation
+      totalCost       += day.codex.totalCost;
     }
   }
   return { inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens, totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens, totalCost };
