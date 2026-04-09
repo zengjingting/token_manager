@@ -38,6 +38,9 @@ export function readClaudeUsageSince(sinceMs) {
     // Skip files not modified in the window (+ 1h buffer)
     let stat;
     try { stat = statSync(file); } catch { continue; }
+    // Buffer of 1h: JSONL files are append-only, so mtime ≈ time of last write.
+    // We add a safety margin to avoid skipping files that were written just before
+    // the window but haven't been flushed yet. 1h is conservative for the 5h use-case.
     if (stat.mtimeMs < sinceMs - 3_600_000) continue;
 
     const lines = readFileSync(file, 'utf-8').split('\n');
@@ -73,7 +76,7 @@ export function readClaudeUsageSince(sinceMs) {
         sessions[sid] = {
           id: sid, source: 'claude',
           inputTokens: 0, outputTokens: 0, cacheTokens: 0, totalCost: 0,
-          models: new Set(), lastActivity: entry.timestamp
+          models: new Set(), lastActivityMs: new Date(entry.timestamp).getTime()
         };
       }
       sessions[sid].inputTokens  += inp;
@@ -81,7 +84,8 @@ export function readClaudeUsageSince(sinceMs) {
       sessions[sid].cacheTokens  += cCreate + cRead;
       sessions[sid].totalCost    += cost;
       sessions[sid].models.add(model);
-      if (entry.timestamp > sessions[sid].lastActivity) sessions[sid].lastActivity = entry.timestamp;
+      const entryTs = new Date(entry.timestamp).getTime();
+      if (entryTs > sessions[sid].lastActivityMs) sessions[sid].lastActivityMs = entryTs;
     }
   }
 
@@ -97,6 +101,6 @@ export function readClaudeUsageSince(sinceMs) {
       totalTokens: v.inputTokens + v.outputTokens + v.cacheCreationTokens + v.cacheReadTokens,
       cost: v.cost
     })),
-    sessions: Object.values(sessions).map(s => ({ ...s, models: [...s.models] }))
+    sessions: Object.values(sessions).map(({ lastActivityMs, ...s }) => ({ ...s, lastActivity: new Date(lastActivityMs).toISOString(), models: [...s.models] }))
   };
 }
