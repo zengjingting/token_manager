@@ -1,5 +1,325 @@
-<!DOCTYPE html><html><body>
-<h1 style="font-family:monospace;color:#00ff41;background:#0d0d0d;padding:40px">
-  TOKEN DASHBOARD — coming in Task 6
-</h1>
-</body></html>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d0d; --panel: #111; --border: #1e1e1e;
+      --green: #00ff41; --green-dim: #00b32d; --green-faint: rgba(0,255,65,0.05);
+      --amber: #ffb800; --blue: #00b4ff;
+      --text: #c8c8c8; --text-dim: #555;
+      --font: 'Courier New', Consolas, monospace;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
+
+    /* ── Header ── */
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); }
+    .header-title { color: var(--green); font-size: 15px; font-weight: bold; letter-spacing: 3px; }
+    .header-status { color: var(--text-dim); font-size: 11px; }
+
+    /* ── Period tabs ── */
+    .period-bar { display: flex; align-items: center; gap: 4px; padding: 10px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .period-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 4px 14px; cursor: pointer; font-family: var(--font); font-size: 12px; letter-spacing: 1px; transition: all 0.15s; }
+    .period-btn:hover  { border-color: var(--green-dim); color: var(--green-dim); }
+    .period-btn.active { border-color: var(--green); color: var(--green); background: var(--green-faint); }
+    .custom-range { display: none; align-items: center; gap: 8px; margin-left: 12px; }
+    .custom-range.visible { display: flex; }
+    .custom-range input { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 3px 8px; font-family: var(--font); font-size: 12px; width: 130px; }
+    .custom-range button { background: none; border: 1px solid var(--green-dim); color: var(--green-dim); padding: 3px 10px; cursor: pointer; font-family: var(--font); font-size: 11px; }
+
+    /* ── Main ── */
+    .main { padding: 18px 24px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── Stat cards ── */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .stat-card { background: var(--panel); border: 1px solid var(--border); padding: 14px 16px; }
+    .stat-label { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: bold; color: var(--green); line-height: 1; }
+    .stat-sub   { color: var(--text-dim); font-size: 10px; margin-top: 5px; }
+
+    /* ── Charts ── */
+    .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+    .chart-panel { background: var(--panel); border: 1px solid var(--border); padding: 14px 16px; }
+    .panel-title { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* ── Session table ── */
+    .session-panel { background: var(--panel); border: 1px solid var(--border); }
+    .session-header { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    .session-scroll { max-height: 300px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { position: sticky; top: 0; background: #161616; color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    td { padding: 6px 10px; border-bottom: 1px solid #161616; font-size: 11px; }
+    tr:hover td { background: var(--green-faint); }
+    .badge { padding: 2px 6px; font-size: 10px; border: 1px solid; letter-spacing: 1px; }
+    .badge-claude { color: var(--amber); border-color: var(--amber); }
+    .badge-codex  { color: var(--blue);  border-color: var(--blue);  }
+    .placeholder  { color: var(--text-dim); text-align: center; padding: 32px; letter-spacing: 2px; font-size: 11px; }
+
+    @media (max-width: 900px) {
+      .stats-row  { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">▸ TOKEN DASHBOARD</div>
+  <div class="header-status" id="status">CONNECTING...</div>
+</div>
+
+<div class="period-bar">
+  <button class="period-btn"        data-period="5h">5H</button>
+  <button class="period-btn active" data-period="1d">1D</button>
+  <button class="period-btn"        data-period="3d">3D</button>
+  <button class="period-btn"        data-period="7d">7D</button>
+  <button class="period-btn"        data-period="custom">CUSTOM</button>
+  <div class="custom-range" id="customRange">
+    <input type="date" id="sinceInput">
+    <span style="color:var(--text-dim)">→</span>
+    <input type="date" id="untilInput">
+    <button id="applyCustom">APPLY</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL TOKENS</div>
+      <div class="stat-value" id="sTokens">—</div>
+      <div class="stat-sub"  id="sTokensSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TOTAL COST</div>
+      <div class="stat-value" id="sCost">—</div>
+      <div class="stat-sub">USD</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CACHE HIT</div>
+      <div class="stat-value" id="sCache">—</div>
+      <div class="stat-sub">read / (read + create)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">MODELS USED</div>
+      <div class="stat-value" id="sModels">—</div>
+      <div class="stat-sub"  id="sModelNames"></div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-panel" id="tokenChartPanel">
+      <div class="panel-title">TOKEN BREAKDOWN BY DAY</div>
+      <div class="chart-wrap"><canvas id="tokenChart"></canvas></div>
+    </div>
+    <div class="chart-panel">
+      <div class="panel-title">MODEL DISTRIBUTION</div>
+      <div class="chart-wrap"><canvas id="modelChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="session-panel">
+    <div class="session-header">
+      <span class="panel-title" style="margin:0;border:none;padding:0">SESSIONS</span>
+    </div>
+    <div class="session-scroll">
+      <table>
+        <thead><tr>
+          <th>SRC</th><th>SESSION</th>
+          <th>TOKENS</th><th>IN</th><th>OUT</th><th>CACHE</th>
+          <th>COST $</th><th>LAST ACTIVITY</th><th>MODELS</th>
+        </tr></thead>
+        <tbody id="sessionBody">
+          <tr><td colspan="9" class="placeholder">LOADING...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentPeriod = '1d';
+let tokenChart = null, modelChart = null;
+let es = null;
+
+// ── Chart defaults ─────────────────────────────────────────────────────────
+Chart.defaults.color       = '#555';
+Chart.defaults.borderColor = '#1e1e1e';
+
+// ── Formatters ─────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (n == null) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+function fmtCost(n) {
+  if (!n) return '$0.0000';
+  return '$' + Number(n).toFixed(4);
+}
+function shortModel(name) {
+  return (name || '').split('-').slice(-2).join('-');
+}
+function shortSession(id) {
+  return (id || '').split('/').pop()?.slice(-14) || (id || '').slice(-14) || '—';
+}
+
+// ── Render stats ───────────────────────────────────────────────────────────
+function renderStats(report) {
+  const s = report.summary;
+  document.getElementById('sTokens').textContent    = fmt(s.totalTokens);
+  document.getElementById('sTokensSub').textContent = `in:${fmt(s.inputTokens)} out:${fmt(s.outputTokens)}`;
+  document.getElementById('sCost').textContent       = fmtCost(s.totalCost);
+  const cacheTotal = (s.cacheReadTokens || 0) + (s.cacheCreationTokens || 0);
+  document.getElementById('sCache').textContent      = cacheTotal > 0
+    ? ((s.cacheReadTokens || 0) / cacheTotal * 100).toFixed(1) + '%' : '—';
+  document.getElementById('sModels').textContent     = report.models.length;
+  document.getElementById('sModelNames').textContent = report.models.slice(0, 2).map(m => shortModel(m.name)).join(', ');
+}
+
+// ── Render token bar chart ─────────────────────────────────────────────────
+function renderTokenChart(report) {
+  const panel = document.getElementById('tokenChartPanel');
+  if (!report.daily?.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const d = report.daily;
+  if (tokenChart) tokenChart.destroy();
+  tokenChart = new Chart(document.getElementById('tokenChart'), {
+    type: 'bar',
+    data: {
+      labels: d.map(r => r.date),
+      datasets: [
+        { label: 'Claude In',    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(0,255,65,0.75)',  stack: 'claude' },
+        { label: 'Claude Out',   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(0,180,45,0.75)',  stack: 'claude' },
+        { label: 'Claude Cache', data: d.map(r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0)), backgroundColor: 'rgba(0,80,20,0.6)', stack: 'claude' },
+        { label: 'Codex In',     data: d.map(r => r.codex?.inputTokens         || 0), backgroundColor: 'rgba(0,180,255,0.75)', stack: 'codex' },
+        { label: 'Codex Out',    data: d.map(r => r.codex?.outputTokens        || 0), backgroundColor: 'rgba(0,100,200,0.75)', stack: 'codex' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Courier New', size: 10 } } },
+        y: { stacked: true, ticks: { callback: v => fmt(v), font: { family: 'Courier New', size: 10 } } }
+      },
+      plugins: { legend: { labels: { font: { family: 'Courier New', size: 10 }, boxWidth: 10, padding: 8 } } }
+    }
+  });
+}
+
+// ── Render model doughnut ──────────────────────────────────────────────────
+function renderModelChart(report) {
+  if (!report.models.length) return;
+  if (modelChart) modelChart.destroy();
+  const COLORS = ['#00ff41','#00b4ff','#ffb800','#ff4444','#aa00ff','#00ffcc'];
+  modelChart = new Chart(document.getElementById('modelChart'), {
+    type: 'doughnut',
+    data: {
+      labels: report.models.map(m => shortModel(m.name)),
+      datasets: [{
+        data:            report.models.map(m => m.cost > 0 ? m.cost : m.totalTokens),
+        backgroundColor: report.models.map((_, i) => COLORS[i % COLORS.length] + '99'),
+        borderColor:     report.models.map((_, i) => COLORS[i % COLORS.length]),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Courier New', size: 10 }, boxWidth: 10, padding: 6 } },
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.label}: ${fmtCost(ctx.raw)} (${report.models[ctx.dataIndex]?.pct}%)`
+        }}
+      }
+    }
+  });
+}
+
+// ── Render session table ───────────────────────────────────────────────────
+function renderSessions(report) {
+  const tbody = document.getElementById('sessionBody');
+  if (!report.sessions?.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">NO SESSIONS</td></tr>';
+    return;
+  }
+  tbody.innerHTML = report.sessions.slice(0, 50).map(s => {
+    const total = (s.inputTokens || 0) + (s.outputTokens || 0) + (s.cacheTokens || 0);
+    const ts    = s.lastActivity ? new Date(s.lastActivity).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    const models = (s.models || []).map(m => m.split('-').pop()).join(', ');
+    return `<tr>
+      <td><span class="badge badge-${s.source}">${s.source.toUpperCase()}</span></td>
+      <td style="color:var(--text-dim);font-size:10px" title="${s.id}">${shortSession(s.id)}</td>
+      <td>${fmt(total)}</td>
+      <td>${fmt(s.inputTokens)}</td>
+      <td>${fmt(s.outputTokens)}</td>
+      <td>${fmt(s.cacheTokens)}</td>
+      <td>${fmtCost(s.totalCost)}</td>
+      <td style="color:var(--text-dim)">${ts}</td>
+      <td style="color:var(--text-dim);font-size:10px">${models}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render full report ─────────────────────────────────────────────────────
+function renderReport(report) {
+  document.getElementById('status').textContent = `UPDATED ${new Date(report.updatedAt).toLocaleTimeString()}`;
+  renderStats(report);
+  renderTokenChart(report);
+  renderModelChart(report);
+  renderSessions(report);
+}
+
+// ── SSE connection ─────────────────────────────────────────────────────────
+function connect(period, since, until) {
+  if (es) { es.close(); es = null; }
+  document.getElementById('status').textContent = 'LOADING...';
+  let url = `/api/stream?period=${period}`;
+  if (since) url += `&since=${since}`;
+  if (until) url += `&until=${until}`;
+  es = new EventSource(url);
+  es.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.error) { document.getElementById('status').textContent = 'ERROR: ' + data.error; return; }
+      renderReport(data);
+    } catch { document.getElementById('status').textContent = 'PARSE ERROR'; }
+  };
+  es.onerror = () => { document.getElementById('status').textContent = 'RECONNECTING...'; };
+}
+
+// ── Period tab clicks ──────────────────────────────────────────────────────
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPeriod = btn.dataset.period;
+    const customRange = document.getElementById('customRange');
+    if (currentPeriod === 'custom') {
+      customRange.classList.add('visible');
+    } else {
+      customRange.classList.remove('visible');
+      connect(currentPeriod);
+    }
+  });
+});
+
+// ── Custom range apply ─────────────────────────────────────────────────────
+document.getElementById('applyCustom').addEventListener('click', () => {
+  const since = document.getElementById('sinceInput').value;
+  const until = document.getElementById('untilInput').value;
+  if (since) connect('custom', since, until || undefined);
+});
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+connect('1d');
+</script>
+</body>
+</html>
