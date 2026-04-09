@@ -21,6 +21,7 @@ function parseUsageLine(line) {
   let entry;
   try { entry = JSON.parse(line); } catch { return null; }
   if (!entry.timestamp || !entry.message?.usage) return null;
+  if (entry.message?.model === '<synthetic>') return null;  // internal placeholder, no real tokens
   return entry;
 }
 
