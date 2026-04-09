@@ -32,6 +32,7 @@ export function readClaudeUsageSince(sinceMs) {
   const files = getAllJsonlFiles(PROJECTS_DIR);
   const models = {};
   const sessions = {};
+  const hourly = {};  // key: "YYYY-MM-DDTHH" → token/cost totals
   let inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0, totalCost = 0;
 
   for (const file of files) {
@@ -71,6 +72,15 @@ export function readClaudeUsageSince(sinceMs) {
       models[model].cacheReadTokens     += cRead;
       models[model].cost                += cost;
 
+      // per-hour bucket for 5h bar chart
+      const hourKey = entry.timestamp.slice(0, 13); // "2026-04-09T14"
+      if (!hourly[hourKey]) hourly[hourKey] = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, totalCost: 0 };
+      hourly[hourKey].inputTokens         += inp;
+      hourly[hourKey].outputTokens        += out;
+      hourly[hourKey].cacheCreationTokens += cCreate;
+      hourly[hourKey].cacheReadTokens     += cRead;
+      hourly[hourKey].totalCost           += cost;
+
       const sid = entry.sessionId || file;
       if (!sessions[sid]) {
         sessions[sid] = {
@@ -101,6 +111,9 @@ export function readClaudeUsageSince(sinceMs) {
       totalTokens: v.inputTokens + v.outputTokens + v.cacheCreationTokens + v.cacheReadTokens,
       cost: v.cost
     })),
-    sessions: Object.values(sessions).map(({ lastActivityMs, ...s }) => ({ ...s, lastActivity: new Date(lastActivityMs).toISOString(), models: [...s.models] }))
+    sessions: Object.values(sessions).map(({ lastActivityMs, ...s }) => ({ ...s, lastActivity: new Date(lastActivityMs).toISOString(), models: [...s.models] })),
+    hourlyBuckets: Object.entries(hourly)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, v]) => ({ label: key.slice(11) + ':00', ...v }))
   };
 }

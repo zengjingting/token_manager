@@ -151,6 +151,18 @@ export function buildReportFromCLI({ period, claudeDaily, codexDaily, claudeSess
  */
 export function buildReportFromHourly({ period, claudeHourly }) {
   const totalCost = claudeHourly.summary.totalCost;
+  // Map hourly buckets into the same daily-row shape for the bar chart
+  const daily = (claudeHourly.hourlyBuckets || []).map(h => ({
+    date: h.label,
+    claude: {
+      inputTokens:         h.inputTokens,
+      outputTokens:        h.outputTokens,
+      cacheCreationTokens: h.cacheCreationTokens,
+      cacheReadTokens:     h.cacheReadTokens,
+      totalCost:           h.totalCost
+    },
+    codex: null
+  }));
   return {
     updatedAt: new Date().toISOString(),
     period,
@@ -159,7 +171,7 @@ export function buildReportFromHourly({ period, claudeHourly }) {
       ...m,
       pct: totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : '0'
     })).sort((a, b) => b.cost - a.cost),
-    daily:    [],
+    daily,
     sessions: claudeHourly.sessions.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity))
   };
 }

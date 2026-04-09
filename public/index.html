@@ -8,75 +8,110 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      /* Claude brand palette */
-      --bg:           #1C1917;
-      --panel:        #292524;
-      --border:       #44403C;
+      /* Claude brand — light mode */
+      --bg:           #F9F7F4;
+      --panel:        #FFFFFF;
+      --border:       #E8E4DE;
+      --border-light: #F0EDE8;
       --orange:       #D97757;
-      --orange-dim:   #A8523A;
-      --orange-faint: rgba(217,119,87,0.08);
-      --blue:         #60A5FA;
-      --text:         #E7E5E4;
-      --text-dim:     #78716C;
-      --font: -apple-system, 'Segoe UI', sans-serif;
+      --orange-dim:   #C06040;
+      --orange-faint: rgba(217,119,87,0.09);
+      --blue:         #3B82F6;
+      --blue-faint:   rgba(59,130,246,0.08);
+      --text:         #1C1917;
+      --text-dim:     #92817A;
+      --text-dimmer:  #B9ADA8;
+      --shadow:       0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --font:      -apple-system, 'Segoe UI', sans-serif;
       --font-mono: 'Courier New', Consolas, monospace;
     }
     body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
 
     /* ── Header ── */
-    .header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 13px 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
     .header-left  { display: flex; align-items: center; gap: 16px; }
-    .header-title { color: var(--orange); font-size: 15px; font-weight: 700; letter-spacing: 1px; font-family: var(--font); }
-    .header-right { display: flex; align-items: center; gap: 12px; }
+    .header-title { color: var(--orange); font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
     .header-status { color: var(--text-dim); font-size: 11px; font-family: var(--font-mono); }
 
-    /* ── Language toggle ── */
-    .lang-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 10px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 4px; transition: all 0.15s; }
-    .lang-btn:hover { border-color: var(--orange-dim); color: var(--orange-dim); }
-    .lang-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); }
+    /* ── Lang toggle ── */
+    .lang-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 10px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 5px; transition: all 0.15s; }
+    .lang-btn:hover  { border-color: var(--orange-dim); color: var(--orange-dim); }
+    .lang-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); font-weight: 600; }
 
-    /* ── Period tabs ── */
-    .period-bar { display: flex; align-items: center; gap: 6px; padding: 10px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    /* ── Period bar ── */
+    .period-bar { display: flex; align-items: center; gap: 6px; padding: 10px 24px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .period-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 5px 16px; cursor: pointer; font-family: var(--font); font-size: 12px; border-radius: 6px; transition: all 0.15s; }
-    .period-btn:hover  { border-color: var(--orange-dim); color: var(--orange-dim); }
+    .period-btn:hover  { border-color: var(--orange-dim); color: var(--orange-dim); background: var(--orange-faint); }
     .period-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); font-weight: 600; }
     .custom-range { display: none; align-items: center; gap: 8px; margin-left: 8px; }
     .custom-range.visible { display: flex; }
-    .custom-range input { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; font-family: var(--font); font-size: 12px; width: 130px; border-radius: 4px; }
-    .custom-range button { background: var(--orange-faint); border: 1px solid var(--orange-dim); color: var(--orange); padding: 4px 12px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 4px; font-weight: 600; }
+    .custom-range input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; font-family: var(--font); font-size: 12px; width: 130px; border-radius: 5px; }
+    .custom-range button { background: var(--orange-faint); border: 1px solid var(--orange); color: var(--orange); padding: 4px 12px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 5px; font-weight: 600; }
 
-    /* ── Main ── */
+    /* ── Main layout ── */
     .main { padding: 18px 24px; display: flex; flex-direction: column; gap: 14px; }
 
     /* ── Stat cards ── */
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    .stat-card { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; border-radius: 8px; }
-    .stat-label { color: var(--text-dim); font-size: 11px; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-card {
+      background: var(--panel); border: 1px solid var(--border);
+      padding: 16px 18px; border-radius: 10px; box-shadow: var(--shadow);
+      position: relative; cursor: default;
+    }
+    .stat-label { color: var(--text-dim); font-size: 11px; margin-bottom: 8px; }
     .stat-value { font-size: 24px; font-weight: 700; color: var(--orange); line-height: 1; font-family: var(--font-mono); }
-    .stat-sub   { color: var(--text-dim); font-size: 10px; margin-top: 6px; font-family: var(--font-mono); }
+    .stat-sub   { color: var(--text-dimmer); font-size: 10px; margin-top: 6px; font-family: var(--font-mono); }
+
+    /* ── Tooltip ── */
+    .stat-tip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 7px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1C1917;
+      color: #F9F7F4;
+      padding: 7px 11px;
+      font-size: 11px;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 200;
+      line-height: 1.5;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+    .stat-tip::after {
+      content: '';
+      position: absolute;
+      top: 100%; left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #1C1917;
+    }
+    .stat-card:hover .stat-tip { display: block; }
 
     /* ── Charts ── */
     .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
-    .chart-panel { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; border-radius: 8px; }
-    .panel-title { color: var(--text-dim); font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
+    .chart-panel { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; border-radius: 10px; box-shadow: var(--shadow); }
+    .panel-title { color: var(--text-dim); font-size: 11px; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; margin-bottom: 12px; font-weight: 500; }
     .chart-wrap { position: relative; height: 200px; }
 
     /* ── Session table ── */
-    .session-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .session-header { padding: 12px 18px; border-bottom: 1px solid var(--border); }
+    .session-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+    .session-header { padding: 12px 18px; border-bottom: 1px solid var(--border-light); }
     .session-scroll { max-height: 300px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; }
-    th { position: sticky; top: 0; background: #312E2B; color: var(--text-dim); font-size: 10px; letter-spacing: 0.5px; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; }
-    td { padding: 7px 10px; border-bottom: 1px solid #312E2B; font-size: 11px; font-family: var(--font-mono); }
+    th { position: sticky; top: 0; background: #F5F2EE; color: var(--text-dim); font-size: 10px; letter-spacing: 0.3px; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; }
+    td { padding: 7px 10px; border-bottom: 1px solid var(--border-light); font-size: 11px; font-family: var(--font-mono); color: var(--text); }
     tr:hover td { background: var(--orange-faint); }
     .badge { padding: 2px 7px; font-size: 10px; border: 1px solid; border-radius: 4px; font-weight: 600; font-family: var(--font); }
-    .badge-claude { color: var(--orange); border-color: var(--orange); background: var(--orange-faint); }
-    .badge-codex  { color: var(--blue);   border-color: var(--blue);   background: rgba(96,165,250,0.08); }
-    .placeholder  { color: var(--text-dim); text-align: center; padding: 32px; font-size: 12px; font-family: var(--font); }
+    .badge-claude { color: var(--orange);  border-color: var(--orange);  background: var(--orange-faint); }
+    .badge-codex  { color: var(--blue);    border-color: var(--blue);    background: var(--blue-faint); }
+    .placeholder  { color: var(--text-dimmer); text-align: center; padding: 32px; font-size: 12px; font-family: var(--font); }
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: var(--panel); }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     @media (max-width: 900px) {
@@ -116,21 +151,25 @@
 
   <div class="stats-row">
     <div class="stat-card">
+      <div class="stat-tip" id="tipTokens"></div>
       <div class="stat-label" id="lTokens">总 Token</div>
       <div class="stat-value" id="sTokens">—</div>
       <div class="stat-sub"  id="sTokensSub"></div>
     </div>
     <div class="stat-card">
+      <div class="stat-tip" id="tipCost"></div>
       <div class="stat-label" id="lCost">总费用</div>
       <div class="stat-value" id="sCost">—</div>
       <div class="stat-sub" id="lCostSub">USD</div>
     </div>
     <div class="stat-card">
+      <div class="stat-tip" id="tipCache"></div>
       <div class="stat-label" id="lCache">缓存命中</div>
       <div class="stat-value" id="sCache">—</div>
       <div class="stat-sub" id="lCacheSub">读取 / (读取 + 创建)</div>
     </div>
     <div class="stat-card">
+      <div class="stat-tip" id="tipModels"></div>
       <div class="stat-label" id="lModels">模型数</div>
       <div class="stat-value" id="sModels">—</div>
       <div class="stat-sub"  id="sModelNames"></div>
@@ -175,65 +214,58 @@
 </div>
 
 <script>
-// ── i18n ────────────────────────────────────────────────────────────────────
+// ── i18n ──────────────────────────────────────────────────────────────────
 const T = {
   zh: {
-    title:       '▸ Token 用量看板',
-    connecting:  '连接中...',
-    loading:     '加载中...',
-    updated:     '更新于',
-    reconnecting:'重连中...',
-    parseError:  '解析错误',
-    pb:          { '5h':'5小时', '1d':'今日', '3d':'3天', '7d':'7天', 'custom':'自定义' },
-    apply:       '应用',
-    lTokens:     '总 Token',
-    lCost:       '总费用',
-    lCostSub:    'USD',
-    lCache:      '缓存命中',
-    lCacheSub:   '读取 / (读取 + 创建)',
-    lModels:     '模型数',
-    lTokenChart: '每日 Token 分布',
-    lModelChart: '模型分布',
-    lSessions:   '会话列表',
-    noSessions:  '暂无会话',
-    thSrc:       '来源', thSession:'会话', thTokens:'TOKEN',
+    title: '▸ Token 用量看板',
+    connecting: '连接中...', loading: '加载中...', updated: '更新于',
+    reconnecting: '重连中...', parseError: '解析错误',
+    pb: { '5h':'5小时', '1d':'今日', '3d':'3天', '7d':'7天', 'custom':'自定义' },
+    apply: '应用',
+    lTokens: '总 Token', lCost: '总费用', lCostSub: 'USD',
+    lCache: '缓存命中', lCacheSub: '读取 / (读取 + 创建)',
+    lModels: '模型数',
+    lTokenChart5h: '近5小时 Token 分布（按小时）',
+    lTokenChart:   '每日 Token 分布',
+    lModelChart: '模型分布', lSessions: '会话列表', noSessions: '暂无会话',
+    thSrc:'来源', thSession:'会话', thTokens:'TOKEN',
     thIn:'输入', thOut:'输出', thCache:'缓存',
     thCost:'费用', thActivity:'最后活动', thModels:'模型',
-    dsClaudeIn:  'Claude 输入', dsClaudeOut:'Claude 输出', dsClaudeCache:'Claude 缓存',
-    dsCodexIn:   'Codex 输入',  dsCodexOut: 'Codex 输出',
-    inSub: '输入', outSub: '输出',
+    dsClaudeIn:'Claude 输入', dsClaudeOut:'Claude 输出', dsClaudeCache:'Claude 缓存',
+    dsCodexIn:'Codex 输入', dsCodexOut:'Codex 输出',
+    inSub:'输入', outSub:'输出',
+    tipTokens:  '输入 + 输出 + 缓存创建 + 缓存读取',
+    tipCost:    'Claude + Codex 费用合计（USD）',
+    tipCache:   '缓存读取 ÷ (缓存读取 + 缓存创建)',
+    tipModels:  '本周期内使用的不同模型数量',
   },
   en: {
-    title:       '▸ Token Dashboard',
-    connecting:  'CONNECTING...',
-    loading:     'LOADING...',
-    updated:     'UPDATED',
-    reconnecting:'RECONNECTING...',
-    parseError:  'PARSE ERROR',
-    pb:          { '5h':'5H', '1d':'1D', '3d':'3D', '7d':'7D', 'custom':'CUSTOM' },
-    apply:       'APPLY',
-    lTokens:     'TOTAL TOKENS',
-    lCost:       'TOTAL COST',
-    lCostSub:    'USD',
-    lCache:      'CACHE HIT',
-    lCacheSub:   'read / (read + create)',
-    lModels:     'MODELS USED',
-    lTokenChart: 'TOKEN BREAKDOWN BY DAY',
-    lModelChart: 'MODEL DISTRIBUTION',
-    lSessions:   'SESSIONS',
-    noSessions:  'NO SESSIONS',
-    thSrc:       'SRC', thSession:'SESSION', thTokens:'TOKENS',
+    title: '▸ Token Dashboard',
+    connecting: 'CONNECTING...', loading: 'LOADING...', updated: 'UPDATED',
+    reconnecting: 'RECONNECTING...', parseError: 'PARSE ERROR',
+    pb: { '5h':'5H', '1d':'1D', '3d':'3D', '7d':'7D', 'custom':'CUSTOM' },
+    apply: 'APPLY',
+    lTokens: 'TOTAL TOKENS', lCost: 'TOTAL COST', lCostSub: 'USD',
+    lCache: 'CACHE HIT', lCacheSub: 'read / (read + create)',
+    lModels: 'MODELS USED',
+    lTokenChart5h: 'Last 5h Token Breakdown (hourly)',
+    lTokenChart:   'Token Breakdown by Day',
+    lModelChart: 'Model Distribution', lSessions: 'SESSIONS', noSessions: 'NO SESSIONS',
+    thSrc:'SRC', thSession:'SESSION', thTokens:'TOKENS',
     thIn:'IN', thOut:'OUT', thCache:'CACHE',
     thCost:'COST $', thActivity:'LAST ACTIVITY', thModels:'MODELS',
-    dsClaudeIn:  'Claude In',  dsClaudeOut:'Claude Out', dsClaudeCache:'Claude Cache',
-    dsCodexIn:   'Codex In',   dsCodexOut: 'Codex Out',
-    inSub: 'in', outSub: 'out',
+    dsClaudeIn:'Claude In', dsClaudeOut:'Claude Out', dsClaudeCache:'Claude Cache',
+    dsCodexIn:'Codex In', dsCodexOut:'Codex Out',
+    inSub:'in', outSub:'out',
+    tipTokens:  'input + output + cache_creation + cache_read',
+    tipCost:    'Claude + Codex combined cost (USD)',
+    tipCache:   'cache_read ÷ (cache_read + cache_creation)',
+    tipModels:  'Distinct models used in this period',
   }
 };
 
 let lang = 'zh';
-
-function t(key) { return T[lang][key] ?? key; }
+function t(k) { return T[lang][k] ?? k; }
 
 function setLang(l) {
   lang = l;
@@ -245,44 +277,37 @@ function setLang(l) {
 
 function applyStaticLabels() {
   const L = T[lang];
-  document.getElementById('hTitle').textContent      = L.title;
-  document.getElementById('pb-5h').textContent       = L.pb['5h'];
-  document.getElementById('pb-1d').textContent       = L.pb['1d'];
-  document.getElementById('pb-3d').textContent       = L.pb['3d'];
-  document.getElementById('pb-7d').textContent       = L.pb['7d'];
-  document.getElementById('pb-custom').textContent   = L.pb['custom'];
-  document.getElementById('applyCustom').textContent = L.apply;
-  document.getElementById('lTokens').textContent     = L.lTokens;
-  document.getElementById('lCost').textContent       = L.lCost;
-  document.getElementById('lCostSub').textContent    = L.lCostSub;
-  document.getElementById('lCache').textContent      = L.lCache;
-  document.getElementById('lCacheSub').textContent   = L.lCacheSub;
-  document.getElementById('lModels').textContent     = L.lModels;
-  document.getElementById('lTokenChart').textContent = L.lTokenChart;
-  document.getElementById('lModelChart').textContent = L.lModelChart;
-  document.getElementById('lSessions').textContent   = L.lSessions;
-  document.getElementById('thSrc').textContent       = L.thSrc;
-  document.getElementById('thSession').textContent   = L.thSession;
-  document.getElementById('thTokens').textContent    = L.thTokens;
-  document.getElementById('thIn').textContent        = L.thIn;
-  document.getElementById('thOut').textContent       = L.thOut;
-  document.getElementById('thCache').textContent     = L.thCache;
-  document.getElementById('thCost').textContent      = L.thCost;
-  document.getElementById('thActivity').textContent  = L.thActivity;
-  document.getElementById('thModels').textContent    = L.thModels;
+  ['hTitle','pb-5h','pb-1d','pb-3d','pb-7d','pb-custom',
+   'applyCustom','lTokens','lCost','lCostSub','lCache','lCacheSub',
+   'lModels','lModelChart','lSessions',
+   'thSrc','thSession','thTokens','thIn','thOut','thCache','thCost','thActivity','thModels'
+  ].forEach(id => {
+    const key = id.startsWith('pb-') ? 'pb' : id;
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id.startsWith('pb-')) el.textContent = L.pb[id.slice(3)];
+    else el.textContent = L[id] ?? '';
+  });
+  // tooltip texts
+  document.getElementById('tipTokens').textContent = L.tipTokens;
+  document.getElementById('tipCost').textContent   = L.tipCost;
+  document.getElementById('tipCache').textContent  = L.tipCache;
+  document.getElementById('tipModels').textContent = L.tipModels;
+  // chart title depends on current period
+  document.getElementById('lTokenChart').textContent =
+    currentPeriod === '5h' ? L.lTokenChart5h : L.lTokenChart;
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────
 let currentPeriod = '1d';
 let tokenChart = null, modelChart = null;
-let es = null;
-let lastReport = null;
+let es = null, lastReport = null;
 
-// ── Chart defaults ─────────────────────────────────────────────────────────
-Chart.defaults.color       = '#78716C';
-Chart.defaults.borderColor = '#44403C';
+// ── Chart defaults (light) ────────────────────────────────────────────────
+Chart.defaults.color       = '#92817A';
+Chart.defaults.borderColor = '#E8E4DE';
 
-// ── Formatters ─────────────────────────────────────────────────────────────
+// ── Formatters ────────────────────────────────────────────────────────────
 function fmt(n) {
   if (n == null) return '—';
   if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
@@ -290,36 +315,40 @@ function fmt(n) {
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
   return String(Math.round(n));
 }
-function fmtCost(n) {
-  if (!n) return '$0.0000';
-  return '$' + Number(n).toFixed(4);
-}
+function fmtCost(n) { return n ? '$' + Number(n).toFixed(4) : '$0.0000'; }
+
+// Fix 2: strip 'claude-' prefix instead of taking last N segments
 function shortModel(name) {
-  return (name || '').split('-').slice(-2).join('-');
+  if (!name) return '—';
+  return name.replace(/^claude-/, '');
 }
 function shortSession(id) {
   return (id || '').split('/').pop()?.slice(-14) || (id || '').slice(-14) || '—';
 }
 
-// ── Render stats ───────────────────────────────────────────────────────────
+// ── Render stats ──────────────────────────────────────────────────────────
 function renderStats(report) {
   const s = report.summary;
   document.getElementById('sTokens').textContent    = fmt(s.totalTokens);
   document.getElementById('sTokensSub').textContent =
     `${t('inSub')}:${fmt(s.inputTokens)} ${t('outSub')}:${fmt(s.outputTokens)}`;
-  document.getElementById('sCost').textContent       = fmtCost(s.totalCost);
+  document.getElementById('sCost').textContent = fmtCost(s.totalCost);
   const cacheTotal = (s.cacheReadTokens || 0) + (s.cacheCreationTokens || 0);
-  document.getElementById('sCache').textContent      = cacheTotal > 0
-    ? ((s.cacheReadTokens || 0) / cacheTotal * 100).toFixed(1) + '%' : '—';
+  document.getElementById('sCache').textContent =
+    cacheTotal > 0 ? ((s.cacheReadTokens || 0) / cacheTotal * 100).toFixed(1) + '%' : '—';
   document.getElementById('sModels').textContent     = report.models.length;
-  document.getElementById('sModelNames').textContent = report.models.slice(0, 2).map(m => shortModel(m.name)).join(', ');
+  document.getElementById('sModelNames').textContent =
+    report.models.slice(0, 2).map(m => shortModel(m.name)).join(', ');
 }
 
-// ── Render token bar chart ─────────────────────────────────────────────────
+// ── Render token bar chart ────────────────────────────────────────────────
 function renderTokenChart(report) {
   const panel = document.getElementById('tokenChartPanel');
   if (!report.daily?.length) { panel.style.display = 'none'; return; }
   panel.style.display = '';
+  // Fix 3: update chart title based on period
+  document.getElementById('lTokenChart').textContent =
+    report.period === '5h' ? t('lTokenChart5h') : t('lTokenChart');
   const d = report.daily;
   if (tokenChart) tokenChart.destroy();
   tokenChart = new Chart(document.getElementById('tokenChart'), {
@@ -327,11 +356,11 @@ function renderTokenChart(report) {
     data: {
       labels: d.map(r => r.date),
       datasets: [
-        { label: t('dsClaudeIn'),    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(217,119,87,0.85)',  stack: 'claude' },
-        { label: t('dsClaudeOut'),   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(168,82,58,0.85)',   stack: 'claude' },
-        { label: t('dsClaudeCache'), data: d.map(r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0)), backgroundColor: 'rgba(100,50,35,0.7)', stack: 'claude' },
-        { label: t('dsCodexIn'),     data: d.map(r => r.codex?.inputTokens         || 0), backgroundColor: 'rgba(96,165,250,0.85)',  stack: 'codex' },
-        { label: t('dsCodexOut'),    data: d.map(r => r.codex?.outputTokens        || 0), backgroundColor: 'rgba(59,130,246,0.75)',  stack: 'codex' }
+        { label: t('dsClaudeIn'),    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(217,119,87,0.85)', stack: 'claude' },
+        { label: t('dsClaudeOut'),   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(180,85,50,0.8)',   stack: 'claude' },
+        { label: t('dsClaudeCache'), data: d.map(r => (r.claude?.cacheReadTokens||0)+(r.claude?.cacheCreationTokens||0)), backgroundColor: 'rgba(217,119,87,0.3)', stack: 'claude' },
+        { label: t('dsCodexIn'),     data: d.map(r => r.codex?.inputTokens         || 0), backgroundColor: 'rgba(59,130,246,0.8)',  stack: 'codex' },
+        { label: t('dsCodexOut'),    data: d.map(r => r.codex?.outputTokens        || 0), backgroundColor: 'rgba(59,130,246,0.5)',  stack: 'codex' }
       ]
     },
     options: {
@@ -345,20 +374,20 @@ function renderTokenChart(report) {
   });
 }
 
-// ── Render model doughnut ──────────────────────────────────────────────────
+// ── Render model doughnut ─────────────────────────────────────────────────
 function renderModelChart(report) {
   if (!report.models.length) return;
   if (modelChart) modelChart.destroy();
-  const COLORS = ['#D97757','#60A5FA','#FBBF24','#F87171','#A78BFA','#34D399'];
+  const COLORS = ['#D97757','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#10B981'];
   modelChart = new Chart(document.getElementById('modelChart'), {
     type: 'doughnut',
     data: {
       labels: report.models.map(m => shortModel(m.name)),
       datasets: [{
         data:            report.models.map(m => m.cost > 0 ? m.cost : m.totalTokens),
-        backgroundColor: report.models.map((_, i) => COLORS[i % COLORS.length] + '99'),
+        backgroundColor: report.models.map((_, i) => COLORS[i % COLORS.length] + 'CC'),
         borderColor:     report.models.map((_, i) => COLORS[i % COLORS.length]),
-        borderWidth: 1
+        borderWidth: 2
       }]
     },
     options: {
@@ -373,7 +402,7 @@ function renderModelChart(report) {
   });
 }
 
-// ── Render session table ───────────────────────────────────────────────────
+// ── Render session table ──────────────────────────────────────────────────
 function renderSessions(report) {
   const tbody = document.getElementById('sessionBody');
   if (!report.sessions?.length) {
@@ -381,12 +410,13 @@ function renderSessions(report) {
     return;
   }
   tbody.innerHTML = report.sessions.slice(0, 50).map(s => {
-    const total = (s.inputTokens || 0) + (s.outputTokens || 0) + (s.cacheTokens || 0);
-    const ts    = s.lastActivity ? new Date(s.lastActivity).toLocaleString(
-      lang === 'zh' ? 'zh-CN' : 'en-US',
-      { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
-    ) : '—';
-    const models = (s.models || []).map(m => m.split('-').pop()).join(', ');
+    const total = (s.inputTokens||0) + (s.outputTokens||0) + (s.cacheTokens||0);
+    const ts = s.lastActivity
+      ? new Date(s.lastActivity).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US',
+          { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+      : '—';
+    // Fix 2: strip 'claude-' prefix from model names in session table
+    const models = (s.models || []).map(m => m.replace(/^claude-/, '')).join(', ');
     return `<tr>
       <td><span class="badge badge-${s.source}">${s.source.toUpperCase()}</span></td>
       <td style="color:var(--text-dim);font-size:10px" title="${s.id}">${shortSession(s.id)}</td>
@@ -401,7 +431,7 @@ function renderSessions(report) {
   }).join('');
 }
 
-// ── Render full report ─────────────────────────────────────────────────────
+// ── Render full report ────────────────────────────────────────────────────
 function renderReport(report) {
   lastReport = report;
   document.getElementById('status').textContent =
@@ -412,7 +442,7 @@ function renderReport(report) {
   renderSessions(report);
 }
 
-// ── SSE connection ─────────────────────────────────────────────────────────
+// ── SSE ───────────────────────────────────────────────────────────────────
 function connect(period, since, until) {
   if (es) { es.close(); es = null; }
   document.getElementById('status').textContent = t('loading');
@@ -430,30 +460,24 @@ function connect(period, since, until) {
   es.onerror = () => { document.getElementById('status').textContent = t('reconnecting'); };
 }
 
-// ── Period tab clicks ──────────────────────────────────────────────────────
+// ── Period tabs ───────────────────────────────────────────────────────────
 document.querySelectorAll('.period-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentPeriod = btn.dataset.period;
-    const customRange = document.getElementById('customRange');
-    if (currentPeriod === 'custom') {
-      customRange.classList.add('visible');
-    } else {
-      customRange.classList.remove('visible');
-      connect(currentPeriod);
-    }
+    document.getElementById('customRange').classList.toggle('visible', currentPeriod === 'custom');
+    if (currentPeriod !== 'custom') connect(currentPeriod);
   });
 });
 
-// ── Custom range apply ─────────────────────────────────────────────────────
 document.getElementById('applyCustom').addEventListener('click', () => {
   const since = document.getElementById('sinceInput').value;
   const until = document.getElementById('untilInput').value;
   if (since) connect('custom', since, until || undefined);
 });
 
-// ── Boot ───────────────────────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────────────────────
 applyStaticLabels();
 connect('1d');
 </script>
