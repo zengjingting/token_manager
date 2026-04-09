@@ -9,12 +9,13 @@ function toISODate(date) {
 }
 
 function runNpx(pkg, args) {
-  const result = spawnSync('npx', ['--yes', pkg, ...args, '--json'], {
+  // Fix 6: removed --yes to prevent silent auto-installation of arbitrary packages
+  const result = spawnSync('npx', [pkg, ...args, '--json'], {
     encoding: 'utf-8',
     timeout: 30_000
   });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${pkg} failed (exit ${result.status}): ${result.stderr?.slice(0, 200)}`);
+  if (result.status !== 0) throw new Error(`${pkg} exited with status ${result.status}`);
   return JSON.parse(result.stdout);
 }
 

@@ -12,14 +12,24 @@ const PORT = 3333;
 
 app.use(express.static(join(__dirname, 'public')));
 
+const VALID_PERIODS = new Set(['5h', '1d', '3d', '7d', 'custom']);
+const ISO_DATE_RE   = /^\d{4}-\d{2}-\d{2}$/;
+
+// Fix 4: SSE connection cap to prevent DoS via runaway CLI spawns
+let sseCount = 0;
+const SSE_MAX = 5;
+
 function getDateRange(period, since, until) {
-  const now  = new Date();
+  const now   = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Fix 5: only accept well-formed ISO dates for custom range
+  const sinceDate = since && ISO_DATE_RE.test(since) ? new Date(since) : today;
+  const untilDate = until && ISO_DATE_RE.test(until) ? new Date(until) : now;
   switch (period) {
     case '1d':    return { since: today,                              until: now };
     case '3d':    return { since: new Date(+today - 2 * 86_400_000), until: now };
     case '7d':    return { since: new Date(+today - 6 * 86_400_000), until: now };
-    case 'custom':return { since: since ? new Date(since) : today,   until: until ? new Date(until) : now };
+    case 'custom':return { since: sinceDate, until: untilDate };
     default:      return null; // 5h handled separately
   }
 }
@@ -41,18 +51,28 @@ async function fetchReport(period, since, until) {
 
 // REST endpoint
 app.get('/api/usage', async (req, res) => {
-  const period       = req.query.period || '1d';
+  // Fix 2: validate period
+  const period = VALID_PERIODS.has(req.query.period) ? req.query.period : '1d';
   const { since, until } = req.query;
   try {
     res.json(await fetchReport(period, since, until));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Fix 3: don't leak internal error details
+    console.error('[/api/usage]', err);
+    res.status(500).json({ error: 'Internal error' });
   }
 });
 
 // SSE endpoint
 app.get('/api/stream', (req, res) => {
-  const period       = req.query.period || '1d';
+  // Fix 4: cap concurrent SSE connections
+  if (sseCount >= SSE_MAX) {
+    res.status(429).json({ error: 'Too many SSE connections' });
+    return;
+  }
+
+  // Fix 2: validate period
+  const period = VALID_PERIODS.has(req.query.period) ? req.query.period : '1d';
   const { since, until } = req.query;
 
   res.setHeader('Content-Type',  'text/event-stream');
@@ -60,18 +80,23 @@ app.get('/api/stream', (req, res) => {
   res.setHeader('Connection',    'keep-alive');
   res.flushHeaders();
 
+  sseCount++;
+
   const push = async () => {
     try {
       const report = await fetchReport(period, since, until);
       res.write(`data: ${JSON.stringify(report)}\n\n`);
     } catch (err) {
-      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      // Fix 3: don't leak internal error details over SSE
+      console.error('[/api/stream]', err);
+      res.write(`data: ${JSON.stringify({ error: 'Internal error' })}\n\n`);
     }
   };
 
   push();
   const interval = setInterval(push, 30_000);
-  req.on('close', () => clearInterval(interval));
+  req.on('close', () => { clearInterval(interval); sseCount--; });
 });
 
-app.listen(PORT, () => console.log(`Token Dashboard → http://localhost:${PORT}`));
+// Fix 1: bind to loopback only — blocks LAN access
+app.listen(PORT, '127.0.0.1', () => console.log(`Token Dashboard → http://localhost:${PORT}`));
