@@ -8,57 +8,76 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0d0d0d; --panel: #111; --border: #1e1e1e;
-      --green: #00ff41; --green-dim: #00b32d; --green-faint: rgba(0,255,65,0.05);
-      --amber: #ffb800; --blue: #00b4ff;
-      --text: #c8c8c8; --text-dim: #555;
-      --font: 'Courier New', Consolas, monospace;
+      /* Claude brand palette */
+      --bg:           #1C1917;
+      --panel:        #292524;
+      --border:       #44403C;
+      --orange:       #D97757;
+      --orange-dim:   #A8523A;
+      --orange-faint: rgba(217,119,87,0.08);
+      --blue:         #60A5FA;
+      --text:         #E7E5E4;
+      --text-dim:     #78716C;
+      --font: -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: 'Courier New', Consolas, monospace;
     }
     body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
 
     /* ── Header ── */
     .header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); }
-    .header-title { color: var(--green); font-size: 15px; font-weight: bold; letter-spacing: 3px; }
-    .header-status { color: var(--text-dim); font-size: 11px; }
+    .header-left  { display: flex; align-items: center; gap: 16px; }
+    .header-title { color: var(--orange); font-size: 15px; font-weight: 700; letter-spacing: 1px; font-family: var(--font); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .header-status { color: var(--text-dim); font-size: 11px; font-family: var(--font-mono); }
+
+    /* ── Language toggle ── */
+    .lang-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 10px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 4px; transition: all 0.15s; }
+    .lang-btn:hover { border-color: var(--orange-dim); color: var(--orange-dim); }
+    .lang-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); }
 
     /* ── Period tabs ── */
-    .period-bar { display: flex; align-items: center; gap: 4px; padding: 10px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-    .period-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 4px 14px; cursor: pointer; font-family: var(--font); font-size: 12px; letter-spacing: 1px; transition: all 0.15s; }
-    .period-btn:hover  { border-color: var(--green-dim); color: var(--green-dim); }
-    .period-btn.active { border-color: var(--green); color: var(--green); background: var(--green-faint); }
-    .custom-range { display: none; align-items: center; gap: 8px; margin-left: 12px; }
+    .period-bar { display: flex; align-items: center; gap: 6px; padding: 10px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .period-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 5px 16px; cursor: pointer; font-family: var(--font); font-size: 12px; border-radius: 6px; transition: all 0.15s; }
+    .period-btn:hover  { border-color: var(--orange-dim); color: var(--orange-dim); }
+    .period-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); font-weight: 600; }
+    .custom-range { display: none; align-items: center; gap: 8px; margin-left: 8px; }
     .custom-range.visible { display: flex; }
-    .custom-range input { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 3px 8px; font-family: var(--font); font-size: 12px; width: 130px; }
-    .custom-range button { background: none; border: 1px solid var(--green-dim); color: var(--green-dim); padding: 3px 10px; cursor: pointer; font-family: var(--font); font-size: 11px; }
+    .custom-range input { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; font-family: var(--font); font-size: 12px; width: 130px; border-radius: 4px; }
+    .custom-range button { background: var(--orange-faint); border: 1px solid var(--orange-dim); color: var(--orange); padding: 4px 12px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 4px; font-weight: 600; }
 
     /* ── Main ── */
     .main { padding: 18px 24px; display: flex; flex-direction: column; gap: 14px; }
 
     /* ── Stat cards ── */
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    .stat-card { background: var(--panel); border: 1px solid var(--border); padding: 14px 16px; }
-    .stat-label { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
-    .stat-value { font-size: 22px; font-weight: bold; color: var(--green); line-height: 1; }
-    .stat-sub   { color: var(--text-dim); font-size: 10px; margin-top: 5px; }
+    .stat-card { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; border-radius: 8px; }
+    .stat-label { color: var(--text-dim); font-size: 11px; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--orange); line-height: 1; font-family: var(--font-mono); }
+    .stat-sub   { color: var(--text-dim); font-size: 10px; margin-top: 6px; font-family: var(--font-mono); }
 
     /* ── Charts ── */
     .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
-    .chart-panel { background: var(--panel); border: 1px solid var(--border); padding: 14px 16px; }
-    .panel-title { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
+    .chart-panel { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; border-radius: 8px; }
+    .panel-title { color: var(--text-dim); font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
     .chart-wrap { position: relative; height: 200px; }
 
     /* ── Session table ── */
-    .session-panel { background: var(--panel); border: 1px solid var(--border); }
-    .session-header { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    .session-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .session-header { padding: 12px 18px; border-bottom: 1px solid var(--border); }
     .session-scroll { max-height: 300px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; }
-    th { position: sticky; top: 0; background: #161616; color: var(--text-dim); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); }
-    td { padding: 6px 10px; border-bottom: 1px solid #161616; font-size: 11px; }
-    tr:hover td { background: var(--green-faint); }
-    .badge { padding: 2px 6px; font-size: 10px; border: 1px solid; letter-spacing: 1px; }
-    .badge-claude { color: var(--amber); border-color: var(--amber); }
-    .badge-codex  { color: var(--blue);  border-color: var(--blue);  }
-    .placeholder  { color: var(--text-dim); text-align: center; padding: 32px; letter-spacing: 2px; font-size: 11px; }
+    th { position: sticky; top: 0; background: #312E2B; color: var(--text-dim); font-size: 10px; letter-spacing: 0.5px; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; }
+    td { padding: 7px 10px; border-bottom: 1px solid #312E2B; font-size: 11px; font-family: var(--font-mono); }
+    tr:hover td { background: var(--orange-faint); }
+    .badge { padding: 2px 7px; font-size: 10px; border: 1px solid; border-radius: 4px; font-weight: 600; font-family: var(--font); }
+    .badge-claude { color: var(--orange); border-color: var(--orange); background: var(--orange-faint); }
+    .badge-codex  { color: var(--blue);   border-color: var(--blue);   background: rgba(96,165,250,0.08); }
+    .placeholder  { color: var(--text-dim); text-align: center; padding: 32px; font-size: 12px; font-family: var(--font); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--panel); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     @media (max-width: 900px) {
       .stats-row  { grid-template-columns: repeat(2, 1fr); }
@@ -69,21 +88,27 @@
 <body>
 
 <div class="header">
-  <div class="header-title">▸ TOKEN DASHBOARD</div>
-  <div class="header-status" id="status">CONNECTING...</div>
+  <div class="header-left">
+    <div class="header-title" id="hTitle">▸ Token 用量看板</div>
+  </div>
+  <div class="header-right">
+    <div class="header-status" id="status">连接中...</div>
+    <button class="lang-btn active" id="langZh" onclick="setLang('zh')">中文</button>
+    <button class="lang-btn"        id="langEn" onclick="setLang('en')">EN</button>
+  </div>
 </div>
 
 <div class="period-bar">
-  <button class="period-btn"        data-period="5h">5H</button>
-  <button class="period-btn active" data-period="1d">1D</button>
-  <button class="period-btn"        data-period="3d">3D</button>
-  <button class="period-btn"        data-period="7d">7D</button>
-  <button class="period-btn"        data-period="custom">CUSTOM</button>
+  <button class="period-btn"        data-period="5h"     id="pb-5h">5小时</button>
+  <button class="period-btn active" data-period="1d"     id="pb-1d">今日</button>
+  <button class="period-btn"        data-period="3d"     id="pb-3d">3天</button>
+  <button class="period-btn"        data-period="7d"     id="pb-7d">7天</button>
+  <button class="period-btn"        data-period="custom" id="pb-custom">自定义</button>
   <div class="custom-range" id="customRange">
     <input type="date" id="sinceInput">
     <span style="color:var(--text-dim)">→</span>
     <input type="date" id="untilInput">
-    <button id="applyCustom">APPLY</button>
+    <button id="applyCustom">应用</button>
   </div>
 </div>
 
@@ -91,22 +116,22 @@
 
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-label">TOTAL TOKENS</div>
+      <div class="stat-label" id="lTokens">总 Token</div>
       <div class="stat-value" id="sTokens">—</div>
       <div class="stat-sub"  id="sTokensSub"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">TOTAL COST</div>
+      <div class="stat-label" id="lCost">总费用</div>
       <div class="stat-value" id="sCost">—</div>
-      <div class="stat-sub">USD</div>
+      <div class="stat-sub" id="lCostSub">USD</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">CACHE HIT</div>
+      <div class="stat-label" id="lCache">缓存命中</div>
       <div class="stat-value" id="sCache">—</div>
-      <div class="stat-sub">read / (read + create)</div>
+      <div class="stat-sub" id="lCacheSub">读取 / (读取 + 创建)</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">MODELS USED</div>
+      <div class="stat-label" id="lModels">模型数</div>
       <div class="stat-value" id="sModels">—</div>
       <div class="stat-sub"  id="sModelNames"></div>
     </div>
@@ -114,28 +139,34 @@
 
   <div class="charts-row">
     <div class="chart-panel" id="tokenChartPanel">
-      <div class="panel-title">TOKEN BREAKDOWN BY DAY</div>
+      <div class="panel-title" id="lTokenChart">每日 Token 分布</div>
       <div class="chart-wrap"><canvas id="tokenChart"></canvas></div>
     </div>
     <div class="chart-panel">
-      <div class="panel-title">MODEL DISTRIBUTION</div>
+      <div class="panel-title" id="lModelChart">模型分布</div>
       <div class="chart-wrap"><canvas id="modelChart"></canvas></div>
     </div>
   </div>
 
   <div class="session-panel">
     <div class="session-header">
-      <span class="panel-title" style="margin:0;border:none;padding:0">SESSIONS</span>
+      <span class="panel-title" id="lSessions" style="margin:0;border:none;padding:0">会话列表</span>
     </div>
     <div class="session-scroll">
       <table>
         <thead><tr>
-          <th>SRC</th><th>SESSION</th>
-          <th>TOKENS</th><th>IN</th><th>OUT</th><th>CACHE</th>
-          <th>COST $</th><th>LAST ACTIVITY</th><th>MODELS</th>
+          <th id="thSrc">来源</th>
+          <th id="thSession">会话</th>
+          <th id="thTokens">TOKEN</th>
+          <th id="thIn">输入</th>
+          <th id="thOut">输出</th>
+          <th id="thCache">缓存</th>
+          <th id="thCost">费用</th>
+          <th id="thActivity">最后活动</th>
+          <th id="thModels">模型</th>
         </tr></thead>
         <tbody id="sessionBody">
-          <tr><td colspan="9" class="placeholder">LOADING...</td></tr>
+          <tr><td colspan="9" class="placeholder">加载中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -144,14 +175,112 @@
 </div>
 
 <script>
+// ── i18n ────────────────────────────────────────────────────────────────────
+const T = {
+  zh: {
+    title:       '▸ Token 用量看板',
+    connecting:  '连接中...',
+    loading:     '加载中...',
+    updated:     '更新于',
+    reconnecting:'重连中...',
+    parseError:  '解析错误',
+    pb:          { '5h':'5小时', '1d':'今日', '3d':'3天', '7d':'7天', 'custom':'自定义' },
+    apply:       '应用',
+    lTokens:     '总 Token',
+    lCost:       '总费用',
+    lCostSub:    'USD',
+    lCache:      '缓存命中',
+    lCacheSub:   '读取 / (读取 + 创建)',
+    lModels:     '模型数',
+    lTokenChart: '每日 Token 分布',
+    lModelChart: '模型分布',
+    lSessions:   '会话列表',
+    noSessions:  '暂无会话',
+    thSrc:       '来源', thSession:'会话', thTokens:'TOKEN',
+    thIn:'输入', thOut:'输出', thCache:'缓存',
+    thCost:'费用', thActivity:'最后活动', thModels:'模型',
+    dsClaudeIn:  'Claude 输入', dsClaudeOut:'Claude 输出', dsClaudeCache:'Claude 缓存',
+    dsCodexIn:   'Codex 输入',  dsCodexOut: 'Codex 输出',
+    inSub: '输入', outSub: '输出',
+  },
+  en: {
+    title:       '▸ Token Dashboard',
+    connecting:  'CONNECTING...',
+    loading:     'LOADING...',
+    updated:     'UPDATED',
+    reconnecting:'RECONNECTING...',
+    parseError:  'PARSE ERROR',
+    pb:          { '5h':'5H', '1d':'1D', '3d':'3D', '7d':'7D', 'custom':'CUSTOM' },
+    apply:       'APPLY',
+    lTokens:     'TOTAL TOKENS',
+    lCost:       'TOTAL COST',
+    lCostSub:    'USD',
+    lCache:      'CACHE HIT',
+    lCacheSub:   'read / (read + create)',
+    lModels:     'MODELS USED',
+    lTokenChart: 'TOKEN BREAKDOWN BY DAY',
+    lModelChart: 'MODEL DISTRIBUTION',
+    lSessions:   'SESSIONS',
+    noSessions:  'NO SESSIONS',
+    thSrc:       'SRC', thSession:'SESSION', thTokens:'TOKENS',
+    thIn:'IN', thOut:'OUT', thCache:'CACHE',
+    thCost:'COST $', thActivity:'LAST ACTIVITY', thModels:'MODELS',
+    dsClaudeIn:  'Claude In',  dsClaudeOut:'Claude Out', dsClaudeCache:'Claude Cache',
+    dsCodexIn:   'Codex In',   dsCodexOut: 'Codex Out',
+    inSub: 'in', outSub: 'out',
+  }
+};
+
+let lang = 'zh';
+
+function t(key) { return T[lang][key] ?? key; }
+
+function setLang(l) {
+  lang = l;
+  document.getElementById('langZh').classList.toggle('active', l === 'zh');
+  document.getElementById('langEn').classList.toggle('active', l === 'en');
+  applyStaticLabels();
+  if (lastReport) renderReport(lastReport);
+}
+
+function applyStaticLabels() {
+  const L = T[lang];
+  document.getElementById('hTitle').textContent      = L.title;
+  document.getElementById('pb-5h').textContent       = L.pb['5h'];
+  document.getElementById('pb-1d').textContent       = L.pb['1d'];
+  document.getElementById('pb-3d').textContent       = L.pb['3d'];
+  document.getElementById('pb-7d').textContent       = L.pb['7d'];
+  document.getElementById('pb-custom').textContent   = L.pb['custom'];
+  document.getElementById('applyCustom').textContent = L.apply;
+  document.getElementById('lTokens').textContent     = L.lTokens;
+  document.getElementById('lCost').textContent       = L.lCost;
+  document.getElementById('lCostSub').textContent    = L.lCostSub;
+  document.getElementById('lCache').textContent      = L.lCache;
+  document.getElementById('lCacheSub').textContent   = L.lCacheSub;
+  document.getElementById('lModels').textContent     = L.lModels;
+  document.getElementById('lTokenChart').textContent = L.lTokenChart;
+  document.getElementById('lModelChart').textContent = L.lModelChart;
+  document.getElementById('lSessions').textContent   = L.lSessions;
+  document.getElementById('thSrc').textContent       = L.thSrc;
+  document.getElementById('thSession').textContent   = L.thSession;
+  document.getElementById('thTokens').textContent    = L.thTokens;
+  document.getElementById('thIn').textContent        = L.thIn;
+  document.getElementById('thOut').textContent       = L.thOut;
+  document.getElementById('thCache').textContent     = L.thCache;
+  document.getElementById('thCost').textContent      = L.thCost;
+  document.getElementById('thActivity').textContent  = L.thActivity;
+  document.getElementById('thModels').textContent    = L.thModels;
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let currentPeriod = '1d';
 let tokenChart = null, modelChart = null;
 let es = null;
+let lastReport = null;
 
 // ── Chart defaults ─────────────────────────────────────────────────────────
-Chart.defaults.color       = '#555';
-Chart.defaults.borderColor = '#1e1e1e';
+Chart.defaults.color       = '#78716C';
+Chart.defaults.borderColor = '#44403C';
 
 // ── Formatters ─────────────────────────────────────────────────────────────
 function fmt(n) {
@@ -176,7 +305,8 @@ function shortSession(id) {
 function renderStats(report) {
   const s = report.summary;
   document.getElementById('sTokens').textContent    = fmt(s.totalTokens);
-  document.getElementById('sTokensSub').textContent = `in:${fmt(s.inputTokens)} out:${fmt(s.outputTokens)}`;
+  document.getElementById('sTokensSub').textContent =
+    `${t('inSub')}:${fmt(s.inputTokens)} ${t('outSub')}:${fmt(s.outputTokens)}`;
   document.getElementById('sCost').textContent       = fmtCost(s.totalCost);
   const cacheTotal = (s.cacheReadTokens || 0) + (s.cacheCreationTokens || 0);
   document.getElementById('sCache').textContent      = cacheTotal > 0
@@ -197,20 +327,20 @@ function renderTokenChart(report) {
     data: {
       labels: d.map(r => r.date),
       datasets: [
-        { label: 'Claude In',    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(0,255,65,0.75)',  stack: 'claude' },
-        { label: 'Claude Out',   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(0,180,45,0.75)',  stack: 'claude' },
-        { label: 'Claude Cache', data: d.map(r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0)), backgroundColor: 'rgba(0,80,20,0.6)', stack: 'claude' },
-        { label: 'Codex In',     data: d.map(r => r.codex?.inputTokens         || 0), backgroundColor: 'rgba(0,180,255,0.75)', stack: 'codex' },
-        { label: 'Codex Out',    data: d.map(r => r.codex?.outputTokens        || 0), backgroundColor: 'rgba(0,100,200,0.75)', stack: 'codex' }
+        { label: t('dsClaudeIn'),    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(217,119,87,0.85)',  stack: 'claude' },
+        { label: t('dsClaudeOut'),   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(168,82,58,0.85)',   stack: 'claude' },
+        { label: t('dsClaudeCache'), data: d.map(r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0)), backgroundColor: 'rgba(100,50,35,0.7)', stack: 'claude' },
+        { label: t('dsCodexIn'),     data: d.map(r => r.codex?.inputTokens         || 0), backgroundColor: 'rgba(96,165,250,0.85)',  stack: 'codex' },
+        { label: t('dsCodexOut'),    data: d.map(r => r.codex?.outputTokens        || 0), backgroundColor: 'rgba(59,130,246,0.75)',  stack: 'codex' }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Courier New', size: 10 } } },
-        y: { stacked: true, ticks: { callback: v => fmt(v), font: { family: 'Courier New', size: 10 } } }
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { stacked: true, ticks: { callback: v => fmt(v), font: { size: 11 } } }
       },
-      plugins: { legend: { labels: { font: { family: 'Courier New', size: 10 }, boxWidth: 10, padding: 8 } } }
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10, padding: 8 } } }
     }
   });
 }
@@ -219,7 +349,7 @@ function renderTokenChart(report) {
 function renderModelChart(report) {
   if (!report.models.length) return;
   if (modelChart) modelChart.destroy();
-  const COLORS = ['#00ff41','#00b4ff','#ffb800','#ff4444','#aa00ff','#00ffcc'];
+  const COLORS = ['#D97757','#60A5FA','#FBBF24','#F87171','#A78BFA','#34D399'];
   modelChart = new Chart(document.getElementById('modelChart'), {
     type: 'doughnut',
     data: {
@@ -234,7 +364,7 @@ function renderModelChart(report) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom', labels: { font: { family: 'Courier New', size: 10 }, boxWidth: 10, padding: 6 } },
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 10, padding: 6 } },
         tooltip: { callbacks: {
           label: ctx => ` ${ctx.label}: ${fmtCost(ctx.raw)} (${report.models[ctx.dataIndex]?.pct}%)`
         }}
@@ -247,12 +377,15 @@ function renderModelChart(report) {
 function renderSessions(report) {
   const tbody = document.getElementById('sessionBody');
   if (!report.sessions?.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">NO SESSIONS</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="9" class="placeholder">${t('noSessions')}</td></tr>`;
     return;
   }
   tbody.innerHTML = report.sessions.slice(0, 50).map(s => {
     const total = (s.inputTokens || 0) + (s.outputTokens || 0) + (s.cacheTokens || 0);
-    const ts    = s.lastActivity ? new Date(s.lastActivity).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    const ts    = s.lastActivity ? new Date(s.lastActivity).toLocaleString(
+      lang === 'zh' ? 'zh-CN' : 'en-US',
+      { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
+    ) : '—';
     const models = (s.models || []).map(m => m.split('-').pop()).join(', ');
     return `<tr>
       <td><span class="badge badge-${s.source}">${s.source.toUpperCase()}</span></td>
@@ -270,7 +403,9 @@ function renderSessions(report) {
 
 // ── Render full report ─────────────────────────────────────────────────────
 function renderReport(report) {
-  document.getElementById('status').textContent = `UPDATED ${new Date(report.updatedAt).toLocaleTimeString()}`;
+  lastReport = report;
+  document.getElementById('status').textContent =
+    `${t('updated')} ${new Date(report.updatedAt).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US')}`;
   renderStats(report);
   renderTokenChart(report);
   renderModelChart(report);
@@ -280,7 +415,7 @@ function renderReport(report) {
 // ── SSE connection ─────────────────────────────────────────────────────────
 function connect(period, since, until) {
   if (es) { es.close(); es = null; }
-  document.getElementById('status').textContent = 'LOADING...';
+  document.getElementById('status').textContent = t('loading');
   let url = `/api/stream?period=${period}`;
   if (since) url += `&since=${since}`;
   if (until) url += `&until=${until}`;
@@ -288,11 +423,11 @@ function connect(period, since, until) {
   es.onmessage = e => {
     try {
       const data = JSON.parse(e.data);
-      if (data.error) { document.getElementById('status').textContent = 'ERROR: ' + data.error; return; }
+      if (data.error) { document.getElementById('status').textContent = data.error; return; }
       renderReport(data);
-    } catch { document.getElementById('status').textContent = 'PARSE ERROR'; }
+    } catch { document.getElementById('status').textContent = t('parseError'); }
   };
-  es.onerror = () => { document.getElementById('status').textContent = 'RECONNECTING...'; };
+  es.onerror = () => { document.getElementById('status').textContent = t('reconnecting'); };
 }
 
 // ── Period tab clicks ──────────────────────────────────────────────────────
@@ -319,6 +454,7 @@ document.getElementById('applyCustom').addEventListener('click', () => {
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────────
+applyStaticLabels();
 connect('1d');
 </script>
 </body>
