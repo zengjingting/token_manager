@@ -73,14 +73,15 @@ export function readClaudeUsageSince(sinceMs) {
       models[model].cacheReadTokens     += cRead;
       models[model].cost                += cost;
 
-      // per-hour bucket for 5h bar chart
-      const hourKey = entry.timestamp.slice(0, 13); // "2026-04-09T14"
-      if (!hourly[hourKey]) hourly[hourKey] = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, totalCost: 0 };
-      hourly[hourKey].inputTokens         += inp;
-      hourly[hourKey].outputTokens        += out;
-      hourly[hourKey].cacheCreationTokens += cCreate;
-      hourly[hourKey].cacheReadTokens     += cRead;
-      hourly[hourKey].totalCost           += cost;
+      // per-hour bucket for 5h bar chart — use local time to avoid timezone shift
+      const entryDate = new Date(entry.timestamp);
+      const localHour = `${entryDate.getFullYear()}-${String(entryDate.getMonth()+1).padStart(2,'0')}-${String(entryDate.getDate()).padStart(2,'0')}T${String(entryDate.getHours()).padStart(2,'0')}`;
+      if (!hourly[localHour]) hourly[localHour] = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, totalCost: 0 };
+      hourly[localHour].inputTokens         += inp;
+      hourly[localHour].outputTokens        += out;
+      hourly[localHour].cacheCreationTokens += cCreate;
+      hourly[localHour].cacheReadTokens     += cRead;
+      hourly[localHour].totalCost           += cost;
 
       const sid = entry.sessionId || file;
       if (!sessions[sid]) {
