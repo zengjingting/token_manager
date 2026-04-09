@@ -18,7 +18,8 @@ function normalizeClaudeDaily(raw) {
 /** @ccusage/codex date string "Apr 08, 2026" → "YYYY-MM-DD" */
 function parseCodexDate(str) {
   const d = new Date(str);
-  return isNaN(d.getTime()) ? str : d.toISOString().slice(0, 10);
+  if (isNaN(d.getTime())) throw new Error(`parseCodexDate: cannot parse "${str}"`);
+  return d.toISOString().slice(0, 10);
 }
 
 /** codex daily entry → our daily row (codex side) */
