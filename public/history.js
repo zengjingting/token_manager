@@ -134,8 +134,121 @@ function renderViewerLoading() {
     '<div class="placeholder" style="padding:48px;text-align:center">加载中...</div>';
 }
 
-// ── Stub: renderViewer will be replaced in Task 7 ─────────────────────────
+// ── Conversation viewer rendering ─────────────────────────────────────────
+const MESSAGES_PER_PAGE = 100;
+let viewerSession = null;
+let viewerShown = 0;
+
 function renderViewer(session) {
-  document.getElementById('historyViewer').innerHTML =
-    `<div style="padding:24px;color:var(--text-dim);font-size:12px">Session loaded: ${esc(session.title)} (${session.messages?.length ?? 0} messages)</div>`;
+  viewerSession = session;
+  viewerShown = Math.min(MESSAGES_PER_PAGE, session.messages.length);
+
+  const totalTok = (session.inputTokens||0)+(session.outputTokens||0)+(session.cacheTokens||0);
+  const ts = session.lastActivity
+    ? new Date(session.lastActivity).toLocaleString('zh-CN')
+    : '';
+
+  const viewer = document.getElementById('historyViewer');
+  viewer.innerHTML = `
+    <div class="viewer-header">
+      <div>
+        <div class="viewer-title">${esc(session.title)}</div>
+        <div class="viewer-meta">
+          ${ts} · ${fmtK(totalTok)} tokens · $${(session.totalCost||0).toFixed(4)} ·
+          ${(session.models||[]).map(m => esc(m.replace(/^claude-/,''))).join(', ')}
+        </div>
+      </div>
+      <button class="export-btn" id="exportBtn">↓ Markdown</button>
+    </div>
+    <div id="messageList"></div>
+    ${session.messages.length > MESSAGES_PER_PAGE
+      ? `<div class="msg-load-more"><button id="loadMoreBtn">加载更多 (${session.messages.length - viewerShown} 条)</button></div>`
+      : ''}`;
+
+  document.getElementById('exportBtn').addEventListener('click', exportMarkdown);
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMoreMessages);
+
+  renderMessages(session.messages.slice(0, viewerShown));
+}
+
+function renderMessages(messages) {
+  const list = document.getElementById('messageList');
+  if (!list) return;
+  list.innerHTML = messages.map((msg, idx) => renderMessage(msg, idx)).join('');
+
+  // Delegated click for tool expand/collapse
+  list.addEventListener('click', e => {
+    const label = e.target.closest('.msg-tool .msg-label');
+    if (label) {
+      const tool = label.closest('.msg-tool');
+      if (!tool) return;
+      const body = tool.querySelector('.tool-body');
+      const tog = tool.querySelector('.tool-toggle');
+      if (!body) return;
+      const open = body.classList.toggle('open');
+      if (tog) tog.textContent = open ? '▾ 折叠' : '▸ 展开';
+    }
+  });
+}
+
+function loadMoreMessages() {
+  if (!viewerSession) return;
+  viewerShown = Math.min(viewerShown + MESSAGES_PER_PAGE, viewerSession.messages.length);
+  renderMessages(viewerSession.messages.slice(0, viewerShown));
+
+  const loadMore = document.querySelector('.msg-load-more');
+  if (loadMore) {
+    const remaining = viewerSession.messages.length - viewerShown;
+    if (remaining <= 0) loadMore.remove();
+    else {
+      const btn = loadMore.querySelector('button');
+      if (btn) btn.textContent = `加载更多 (${remaining} 条)`;
+    }
+  }
+}
+
+function renderMessage(msg, idx) {
+  if (msg.role === 'user' && msg.type === 'text') {
+    return `<div class="message msg-user">
+      <div class="msg-label">USER</div>
+      <div class="msg-text">${esc(msg.content)}</div>
+    </div>`;
+  }
+
+  if (msg.role === 'assistant' && msg.type === 'text') {
+    return `<div class="message msg-assistant">
+      <div class="msg-label">ASSISTANT</div>
+      <div class="msg-text">${esc(msg.content)}</div>
+    </div>`;
+  }
+
+  if (msg.type === 'tool_use') {
+    const inputJson = esc(JSON.stringify(msg.input, null, 2));
+    return `<div class="message msg-tool">
+      <div class="msg-label">
+        <span>⚙ ${esc(msg.name)}</span>
+        <span class="tool-toggle">▸ 展开</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input-pre">${inputJson}</div>
+      </div>
+    </div>`;
+  }
+
+  if (msg.type === 'tool_result') {
+    const preview = esc((msg.content || '').slice(0, 500));
+    const truncated = msg.content && msg.content.length > 500;
+    return `<div class="message msg-tool">
+      <div class="msg-label">
+        <span>↩ ${esc(msg.name || 'Result')}</span>
+        <span class="tool-toggle">▸ 展开</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input-pre">${preview}${truncated ? '\n...(truncated)' : ''}</div>
+      </div>
+    </div>`;
+  }
+
+  return '';
 }
