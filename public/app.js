@@ -410,15 +410,17 @@ let projectChartInst = null;
 async function loadAnalytics() {
   if (analyticsLoaded) return;
   analyticsLoaded = true;
-
-  const [heatmapData, projectData] = await Promise.all([
-    fetch('/api/analytics/heatmap').then(r => r.json()).catch(() => ({ days: [] })),
-    fetch('/api/analytics/projects').then(r => r.json()).catch(() => ({ projects: [] }))
-  ]);
-
-  renderHeatmap(heatmapData.days || []);
-  renderProjectChart(projectData.projects || []);
-  renderBillingWindow();
+  try {
+    const [heatmapData, projectData] = await Promise.all([
+      fetch('/api/analytics/heatmap').then(r => r.json()).catch(() => ({ days: [] })),
+      fetch('/api/analytics/projects').then(r => r.json()).catch(() => ({ projects: [] }))
+    ]);
+    renderHeatmap(heatmapData.days || []);
+    renderProjectChart(projectData.projects || []);
+    renderBillingWindow();
+  } catch (e) {
+    analyticsLoaded = false; // allow retry on unexpected failure
+  }
 }
 
 function renderHeatmap(days) {
@@ -428,7 +430,7 @@ function renderHeatmap(days) {
   const byDate = {};
   for (const d of days) byDate[d.date] = d;
 
-  const maxTokens = Math.max(...days.map(d => d.tokens), 1);
+  const maxTokens = days.reduce((m, d) => Math.max(m, d.tokens), 1);
 
   const cells = [];
   const today = new Date();
@@ -486,8 +488,8 @@ function renderHeatmap(days) {
 }
 
 function renderProjectChart(projects) {
+  if (projectChartInst) { projectChartInst.destroy(); projectChartInst = null; }
   if (!projects.length) return;
-  if (projectChartInst) projectChartInst.destroy();
 
   const top = projects.slice(0, 15);
   const COLORS = ['#D97757','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#10B981',
@@ -516,7 +518,7 @@ function renderProjectChart(projects) {
         }}
       },
       scales: {
-        x: { ticks: { callback: v => `$${v.toFixed(3)}`, font: { size: 10 } } },
+        x: { ticks: { callback: v => `$${Number(v).toFixed(3)}`, font: { size: 10 } } },
         y: { ticks: { font: { size: 10 } } }
       }
     }
@@ -526,7 +528,7 @@ function renderProjectChart(projects) {
 function renderBillingWindow() {
   const panel = document.getElementById('billingWindowPanel');
   if (!panel) return;
-  panel.innerHTML = '<div style="color:var(--text-dimmer);font-size:11px">加载中...</div>';
+  panel.innerHTML = `<div style="color:var(--text-dimmer);font-size:11px">${lang === 'zh' ? '加载中...' : 'Loading...'}</div>`;
 
   fetch('/api/usage?period=5h').then(r => r.json()).then(report => {
     const s = report.summary;
