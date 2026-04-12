@@ -169,6 +169,23 @@ function renderViewer(session) {
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMoreMessages);
 
+  // Attach tool expand/collapse once per session load (not per page)
+  const msgList = document.getElementById('messageList');
+  if (msgList) {
+    msgList.addEventListener('click', e => {
+      const label = e.target.closest('.msg-tool .msg-label');
+      if (label) {
+        const tool = label.closest('.msg-tool');
+        if (!tool) return;
+        const body = tool.querySelector('.tool-body');
+        const tog = tool.querySelector('.tool-toggle');
+        if (!body) return;
+        const open = body.classList.toggle('open');
+        if (tog) tog.textContent = open ? '▾ 折叠' : '▸ 展开';
+      }
+    });
+  }
+
   renderMessages(session.messages.slice(0, viewerShown));
 }
 
@@ -176,20 +193,6 @@ function renderMessages(messages) {
   const list = document.getElementById('messageList');
   if (!list) return;
   list.innerHTML = messages.map((msg, idx) => renderMessage(msg, idx)).join('');
-
-  // Delegated click for tool expand/collapse
-  list.addEventListener('click', e => {
-    const label = e.target.closest('.msg-tool .msg-label');
-    if (label) {
-      const tool = label.closest('.msg-tool');
-      if (!tool) return;
-      const body = tool.querySelector('.tool-body');
-      const tog = tool.querySelector('.tool-toggle');
-      if (!body) return;
-      const open = body.classList.toggle('open');
-      if (tog) tog.textContent = open ? '▾ 折叠' : '▸ 展开';
-    }
-  });
 }
 
 function loadMoreMessages() {
