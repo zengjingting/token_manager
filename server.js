@@ -3,7 +3,9 @@ import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readClaudeUsageSince } from './readers/claude-reader.js';
+import { readCodexUsageSince } from './readers/codex-reader.js';
 import { getClaudeDailyData, getClaudeSessionData, getCodexDailyData, getCodexSessionData } from './readers/cli-runner.js';
+import { listSessions, readSession, searchSessions, getProjectStats, getDailyActivity } from './readers/chat-reader.js';
 import { buildReportFromCLI, buildReportFromHourly } from './aggregators/normalize.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,8 +38,10 @@ function getDateRange(period, since, until) {
 
 async function fetchReport(period, since, until) {
   if (period === '5h') {
-    const claudeHourly = readClaudeUsageSince(Date.now() - 5 * 3_600_000);
-    return buildReportFromHourly({ period: '5h', claudeHourly });
+    const sinceMs = Date.now() - 5 * 3_600_000;
+    const claudeHourly = readClaudeUsageSince(sinceMs);
+    const codexHourly = readCodexUsageSince(sinceMs);
+    return buildReportFromHourly({ period: '5h', claudeHourly, codexHourly });
   }
   const range = getDateRange(period, since, until);
   const [claudeDaily, claudeSessions, codexDaily, codexSessions] = await Promise.all([
@@ -96,6 +100,64 @@ app.get('/api/stream', (req, res) => {
   push();
   const interval = setInterval(push, 30_000);
   req.on('close', () => { clearInterval(interval); sseCount--; });
+});
+
+app.get('/api/history/sessions', (_req, res) => {
+  try {
+    res.json(listSessions());
+  } catch (err) {
+    console.error('[/api/history/sessions]', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.get('/api/history/session', (req, res) => {
+  const { project, id } = req.query;
+  if (!project || !id || /[./\\]/.test(project) || /[./\\]/.test(id)) {
+    res.status(400).json({ error: 'Invalid parameters' });
+    return;
+  }
+
+  try {
+    const session = readSession(project, id);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    res.json(session);
+  } catch (err) {
+    console.error('[/api/history/session]', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.get('/api/search', (req, res) => {
+  const q = String(req.query.q || '').slice(0, 200);
+  try {
+    res.json(searchSessions(q));
+  } catch (err) {
+    console.error('[/api/search]', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.get('/api/analytics/heatmap', (_req, res) => {
+  try {
+    const sinceMs = Date.now() - 90 * 86_400_000;
+    res.json({ days: getDailyActivity(sinceMs) });
+  } catch (err) {
+    console.error('[/api/analytics/heatmap]', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.get('/api/analytics/projects', (_req, res) => {
+  try {
+    res.json({ projects: getProjectStats() });
+  } catch (err) {
+    console.error('[/api/analytics/projects]', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
 });
 
 // Fix 1: bind to loopback only — blocks LAN access
