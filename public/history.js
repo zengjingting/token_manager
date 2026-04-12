@@ -255,3 +255,129 @@ function renderMessage(msg, idx) {
 
   return '';
 }
+
+// ── Full-text search ───────────────────────────────────────────────────────
+let searchMode = false;
+
+function initHistorySearch() {
+  const input = document.getElementById('historySearch');
+  const searchBtn = document.getElementById('historySearchBtn');
+  const clearBtn = document.getElementById('historyClearBtn');
+  if (!input || !searchBtn || !clearBtn) return;
+
+  searchBtn.addEventListener('click', () => runSearch(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(input.value); });
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.style.display = 'none';
+    searchMode = false;
+    renderProjectList(allProjects);
+  });
+}
+
+async function runSearch(query) {
+  if (!query.trim()) return;
+  searchMode = true;
+  document.getElementById('historyClearBtn').style.display = '';
+  document.getElementById('historyList').innerHTML =
+    '<div class="placeholder" style="padding:24px">搜索中...</div>';
+
+  try {
+    const data = await fetch(`/api/search?q=${encodeURIComponent(query)}`).then(r => r.json());
+    renderSearchResults(data.results || [], query);
+  } catch {
+    document.getElementById('historyList').innerHTML =
+      '<div class="placeholder" style="padding:24px">搜索失败</div>';
+  }
+}
+
+function renderSearchResults(results, query) {
+  const list = document.getElementById('historyList');
+  if (!results.length) {
+    list.innerHTML = `<div class="placeholder" style="padding:24px">未找到匹配"${esc(query)}"的会话</div>`;
+    return;
+  }
+
+  function highlight(text) {
+    if (!query) return esc(text);
+    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return esc(text).replace(re, '<mark>$1</mark>');
+  }
+
+  list.innerHTML = `<div style="font-size:10px;color:var(--text-dimmer);padding:6px 14px">找到 ${results.length} 个会话</div>` +
+    results.map(r => `
+      <div class="session-search-item" data-id="${esc(r.id)}" data-proj="${esc(r.projectDir)}">
+        <div class="search-result-project">${esc(r.projectName)}</div>
+        <div class="search-result-title">${esc(r.title)}</div>
+        ${r.snippets.map(s =>
+          `<div class="search-snippet">...${highlight(s)}...</div>`
+        ).join('')}
+      </div>`
+    ).join('');
+
+  // Delegated listener for search result clicks
+  list.addEventListener('click', e => {
+    const item = e.target.closest('.session-search-item[data-id]');
+    if (item) selectSession(item.dataset.proj, item.dataset.id);
+  });
+}
+
+// ── Markdown export ────────────────────────────────────────────────────────
+function exportMarkdown() {
+  if (!viewerSession) return;
+  const s = viewerSession;
+  const lines = [];
+
+  lines.push(`# ${s.title}`);
+  lines.push('');
+  lines.push(`**Session:** \`${s.id}\`  `);
+  lines.push(`**Project:** ${s.projectDir}  `);
+  lines.push(`**Last Activity:** ${s.lastActivity}  `);
+  lines.push(`**Models:** ${(s.models||[]).join(', ')}  `);
+  lines.push(`**Tokens:** ${(s.inputTokens||0)+(s.outputTokens||0)+(s.cacheTokens||0)}  `);
+  lines.push(`**Cost:** $${(s.totalCost||0).toFixed(4)}`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  for (const msg of s.messages) {
+    if (msg.role === 'user' && msg.type === 'text') {
+      lines.push('**User:**');
+      lines.push('');
+      lines.push(msg.content);
+      lines.push('');
+    } else if (msg.role === 'assistant' && msg.type === 'text') {
+      lines.push('**Assistant:**');
+      lines.push('');
+      lines.push(msg.content);
+      lines.push('');
+    } else if (msg.type === 'tool_use') {
+      lines.push(`**Tool:** \`${msg.name}\``);
+      lines.push('```json');
+      lines.push(JSON.stringify(msg.input, null, 2));
+      lines.push('```');
+      lines.push('');
+    } else if (msg.type === 'tool_result') {
+      lines.push(`**Result:** \`${msg.name || 'Tool'}\``);
+      lines.push('```');
+      lines.push((msg.content || '').slice(0, 2000));
+      lines.push('```');
+      lines.push('');
+    }
+  }
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${s.id.slice(0, 8)}-${s.title.slice(0, 30).replace(/[^\w\u4e00-\u9fff]/g, '-')}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Initialization ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initHistorySearch();
+});
