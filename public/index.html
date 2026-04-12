@@ -95,6 +95,23 @@
     .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
     .chart-panel { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; border-radius: 10px; box-shadow: var(--shadow); }
     .panel-title { color: var(--text-dim); font-size: 11px; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; margin-bottom: 12px; font-weight: 500; }
+    .series-title { color: var(--text-dimmer); font-size: 10px; margin: -2px 0 6px; letter-spacing: 0.2px; }
+    .series-controls { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 8px; }
+    .series-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--bg);
+      user-select: none;
+      cursor: pointer;
+    }
+    .series-toggle input { margin: 0; width: 11px; height: 11px; accent-color: var(--orange); }
+    .series-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
     .chart-wrap { position: relative; height: 200px; }
 
     /* ── Session table ── */
@@ -224,6 +241,8 @@
   <div class="charts-row">
     <div class="chart-panel" id="tokenChartPanel">
       <div class="panel-title" id="lTokenChart">每日 Token 分布</div>
+      <div class="series-title" id="lSeriesCtrl">可见项</div>
+      <div class="series-controls" id="tokenSeriesControls"></div>
       <div class="chart-wrap"><canvas id="tokenChart"></canvas></div>
     </div>
     <div class="chart-panel">
@@ -270,6 +289,7 @@ const T = {
     lTokens: '总 Token', lCost: '总费用', lCostSub: 'USD',
     lCache: '缓存命中', lCacheSub: '读取 / (读取 + 创建)',
     lModels: '模型数',
+    lSeriesCtrl: '可见项',
     lTokenChart5h: '近5小时 Token 分布（按小时）',
     lTokenChart:   '每日 Token 分布',
     lModelChart: '模型分布', lSessions: '会话列表', noSessions: '暂无会话',
@@ -293,6 +313,7 @@ const T = {
     lTokens: 'TOTAL TOKENS', lCost: 'TOTAL COST', lCostSub: 'USD',
     lCache: 'CACHE HIT', lCacheSub: 'read / (read + create)',
     lModels: 'MODELS USED',
+    lSeriesCtrl: 'Visible Series',
     lTokenChart5h: 'Last 5h Token Breakdown (hourly)',
     lTokenChart:   'Token Breakdown by Day',
     lModelChart: 'Model Distribution', lSessions: 'SESSIONS', noSessions: 'NO SESSIONS',
@@ -324,7 +345,7 @@ function applyStaticLabels() {
   const L = T[lang];
   ['hTitle','pb-5h','pb-1d','pb-3d','pb-7d','pb-custom',
    'applyCustom','lTokens','lCost','lCostSub','lCache','lCacheSub',
-   'lModels','lModelChart','lSessions',
+   'lModels','lSeriesCtrl','lModelChart','lSessions',
    'thSrc','thSession','thTokens','thIn','thOut','thCache','thCost','thActivity','thModels'
   ].forEach(id => {
     const key = id.startsWith('pb-') ? 'pb' : id;
@@ -350,6 +371,15 @@ let currentPeriod = '1d';
 let tokenChart = null, modelChart = null;
 let es = null, lastReport = null;
 let overlayTimer = null;
+const TOKEN_SERIES_META = [
+  { key: 'claudeIn',    labelKey: 'dsClaudeIn',    color: 'rgba(217,119,87,0.85)', valueOf: r => r.claude?.inputTokens || 0 },
+  { key: 'claudeOut',   labelKey: 'dsClaudeOut',   color: 'rgba(180,85,50,0.8)',   valueOf: r => r.claude?.outputTokens || 0 },
+  { key: 'claudeCache', labelKey: 'dsClaudeCache', color: 'rgba(217,119,87,0.3)',  valueOf: r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0) },
+  { key: 'codexIn',     labelKey: 'dsCodexIn',     color: 'rgba(59,130,246,0.85)', valueOf: r => r.codex?.inputTokens || 0 },
+  { key: 'codexOut',    labelKey: 'dsCodexOut',    color: 'rgba(59,130,246,0.55)', valueOf: r => r.codex?.outputTokens || 0 },
+  { key: 'codexCache',  labelKey: 'dsCodexCache',  color: 'rgba(59,130,246,0.25)', valueOf: r => r.codex?.cachedInputTokens || 0 }
+];
+const tokenSeriesVisible = Object.fromEntries(TOKEN_SERIES_META.map(s => [s.key, true]));
 
 function showOverlay() {
   const el = document.getElementById('loadingOverlay');
@@ -406,6 +436,57 @@ function renderStats(report) {
 }
 
 // ── Render token bar chart ────────────────────────────────────────────────
+function calcVisibleMax(datasets) {
+  let max = 0;
+  for (const ds of datasets) {
+    if (ds.hidden) continue;
+    for (const v of (ds.data || [])) {
+      const n = Number(v) || 0;
+      if (n > max) max = n;
+    }
+  }
+  return max;
+}
+
+function applyTokenYAxisScale(chart) {
+  const max = calcVisibleMax(chart.data.datasets);
+  chart.options.scales.y.max = max > 0 ? Math.ceil(max * 1.1) : 1;
+}
+
+function renderTokenSeriesControls() {
+  const wrap = document.getElementById('tokenSeriesControls');
+  if (!wrap || !tokenChart) return;
+  wrap.innerHTML = tokenChart.data.datasets.map((ds, idx) => {
+    const checked = ds.hidden ? '' : 'checked';
+    return `<label class="series-toggle">
+      <input type="checkbox" data-idx="${idx}" ${checked}>
+      <span class="series-dot" style="background:${ds.backgroundColor}"></span>
+      <span>${ds.label}</span>
+    </label>`;
+  }).join('');
+
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(input => {
+    input.addEventListener('change', e => {
+      const idx = Number(e.target.dataset.idx);
+      const ds = tokenChart.data.datasets[idx];
+      if (!ds) return;
+      ds.hidden = !e.target.checked;
+      if (ds.seriesKey) tokenSeriesVisible[ds.seriesKey] = !ds.hidden;
+
+      // keep at least one visible series to avoid misleading empty chart
+      const anyVisible = tokenChart.data.datasets.some(item => !item.hidden);
+      if (!anyVisible) {
+        ds.hidden = false;
+        if (ds.seriesKey) tokenSeriesVisible[ds.seriesKey] = true;
+        e.target.checked = true;
+      }
+
+      applyTokenYAxisScale(tokenChart);
+      tokenChart.update();
+    });
+  });
+}
+
 function renderTokenChart(report) {
   const panel = document.getElementById('tokenChartPanel');
   if (!report.daily?.length) { panel.style.display = 'none'; return; }
@@ -414,29 +495,32 @@ function renderTokenChart(report) {
   document.getElementById('lTokenChart').textContent =
     report.period === '5h' ? t('lTokenChart5h') : t('lTokenChart');
   const d = report.daily;
+  const datasets = TOKEN_SERIES_META.map(s => ({
+    seriesKey: s.key,
+    label: t(s.labelKey),
+    data: d.map(row => s.valueOf(row)),
+    backgroundColor: s.color,
+    minBarLength: 2,
+    hidden: tokenSeriesVisible[s.key] === false
+  }));
+  const yMax = calcVisibleMax(datasets);
   if (tokenChart) tokenChart.destroy();
   tokenChart = new Chart(document.getElementById('tokenChart'), {
     type: 'bar',
     data: {
       labels: d.map(r => r.date),
-      datasets: [
-        { label: t('dsClaudeIn'),    data: d.map(r => r.claude?.inputTokens        || 0), backgroundColor: 'rgba(217,119,87,0.85)', stack: 'claude' },
-        { label: t('dsClaudeOut'),   data: d.map(r => r.claude?.outputTokens       || 0), backgroundColor: 'rgba(180,85,50,0.8)',   stack: 'claude' },
-        { label: t('dsClaudeCache'), data: d.map(r => (r.claude?.cacheReadTokens||0)+(r.claude?.cacheCreationTokens||0)), backgroundColor: 'rgba(217,119,87,0.3)', stack: 'claude' },
-        { label: t('dsCodexIn'),    data: d.map(r => r.codex?.inputTokens      || 0), backgroundColor: 'rgba(59,130,246,0.85)', stack: 'codex' },
-        { label: t('dsCodexOut'),   data: d.map(r => r.codex?.outputTokens     || 0), backgroundColor: 'rgba(59,130,246,0.55)', stack: 'codex' },
-        { label: t('dsCodexCache'), data: d.map(r => r.codex?.cachedInputTokens || 0), backgroundColor: 'rgba(59,130,246,0.25)', stack: 'codex' }
-      ]
+      datasets
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
-        y: { stacked: true, ticks: { callback: v => fmt(v), font: { size: 11 } } }
+        x: { stacked: false, grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { stacked: false, min: 0, max: yMax > 0 ? Math.ceil(yMax * 1.1) : 1, ticks: { callback: v => fmt(v), font: { size: 11 } } }
       },
       plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10, padding: 8 } } }
     }
   });
+  renderTokenSeriesControls();
 }
 
 // ── Render model doughnut ─────────────────────────────────────────────────

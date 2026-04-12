@@ -12,6 +12,21 @@
 
 ---
 
+## Task Breakdown by Layer
+
+| Layer | Tasks |
+|-------|-------|
+| **后端 (Backend)** | Task 1 — `chat-reader.js` Node.js 模块（TDD）<br>Task 2 — `server.js` 新增 5 个 API 路由 |
+| **前端 (Frontend)** | Task 3 — CSS/JS 从 `index.html` 拆分到独立文件（重构）<br>Task 4 — 侧边栏导航 shell + 视图切换<br>Task 5 — 深度分析视图（热力图 + 项目图 + 计费窗口）<br>Task 6 — 历史标签页：会话列表<br>Task 7 — 历史标签页：对话查看器<br>Task 8 — 历史标签页：全文搜索 + Markdown 导出 |
+
+**执行顺序约束：**
+- Task 1 → Task 2（后端先完成，前端才有数据接口）
+- Task 3 → Task 4–8（拆文件是后续前端任务的前提）
+- Task 4 → Task 5–8（侧边栏 shell 和视图容器必须先就位）
+- Task 6 → Task 7 → Task 8（历史页三个子任务按顺序叠加到同一个 `history.js`）
+
+---
+
 ## File Map
 
 | File | Action | Responsibility |

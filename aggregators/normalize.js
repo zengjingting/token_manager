@@ -17,9 +17,22 @@ function normalizeClaudeDaily(raw) {
 
 /** @ccusage/codex date string "Apr 08, 2026" → "YYYY-MM-DD" */
 function parseCodexDate(str) {
-  const d = new Date(str);
-  if (isNaN(d.getTime())) throw new Error(`parseCodexDate: cannot parse "${str}"`);
-  return d.toISOString().slice(0, 10);
+  if (typeof str !== 'string') throw new Error(`parseCodexDate: invalid input "${str}"`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  const m = str.trim().match(/^([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4})$/);
+  if (!m) throw new Error(`parseCodexDate: cannot parse "${str}"`);
+
+  const monthMap = {
+    Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+    Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+  };
+  const mon = m[1].slice(0, 1).toUpperCase() + m[1].slice(1, 3).toLowerCase();
+  const month = monthMap[mon];
+  if (!month) throw new Error(`parseCodexDate: unknown month "${m[1]}"`);
+
+  const day = String(Number(m[2])).padStart(2, '0');
+  return `${m[3]}-${month}-${day}`;
 }
 
 /** codex daily entry → our daily row (codex side) */
@@ -46,6 +59,38 @@ function mergeDailyArrays(claudeRows, codexRows) {
     else map.set(r.date, { date: r.date, claude: null, codex: r.codex });
   }
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function sumClaude(a, b) {
+  if (!a && !b) return null;
+  return {
+    inputTokens:         (a?.inputTokens || 0) + (b?.inputTokens || 0),
+    outputTokens:        (a?.outputTokens || 0) + (b?.outputTokens || 0),
+    cacheCreationTokens: (a?.cacheCreationTokens || 0) + (b?.cacheCreationTokens || 0),
+    cacheReadTokens:     (a?.cacheReadTokens || 0) + (b?.cacheReadTokens || 0),
+    totalCost:           (a?.totalCost || 0) + (b?.totalCost || 0)
+  };
+}
+
+function sumCodex(a, b) {
+  if (!a && !b) return null;
+  return {
+    inputTokens:           (a?.inputTokens || 0) + (b?.inputTokens || 0),
+    outputTokens:          (a?.outputTokens || 0) + (b?.outputTokens || 0),
+    cachedInputTokens:     (a?.cachedInputTokens || 0) + (b?.cachedInputTokens || 0),
+    reasoningOutputTokens: (a?.reasoningOutputTokens || 0) + (b?.reasoningOutputTokens || 0),
+    totalCost:             (a?.totalCost || 0) + (b?.totalCost || 0)
+  };
+}
+
+function squashDailyFor1d(daily) {
+  if (!Array.isArray(daily) || daily.length <= 1) return daily;
+  const latestDate = daily.reduce((max, r) => (r.date > max ? r.date : max), daily[0].date);
+  const merged = daily.reduce((acc, r) => ({
+    claude: sumClaude(acc.claude, r.claude),
+    codex:  sumCodex(acc.codex, r.codex)
+  }), { claude: null, codex: null });
+  return [{ date: latestDate, claude: merged.claude, codex: merged.codex }];
 }
 
 /** Build models list from ccusage modelBreakdowns + codex models */
@@ -129,7 +174,8 @@ function normalizeCodexSessions(raw) {
  * Build UsageReport from ccusage + codex CLI output (1d / 3d / 7d / custom).
  */
 export function buildReportFromCLI({ period, claudeDaily, codexDaily, claudeSessions, codexSessions }) {
-  const daily = mergeDailyArrays(normalizeClaudeDaily(claudeDaily), normalizeCodexDaily(codexDaily));
+  const mergedDaily = mergeDailyArrays(normalizeClaudeDaily(claudeDaily), normalizeCodexDaily(codexDaily));
+  const daily = period === '1d' ? squashDailyFor1d(mergedDaily) : mergedDaily;
   const sessions = [
     ...normalizeClaudeSessions(claudeSessions),
     ...normalizeCodexSessions(codexSessions)
@@ -149,29 +195,84 @@ export function buildReportFromCLI({ period, claudeDaily, codexDaily, claudeSess
  * Build UsageReport from direct JSONL read (5h period).
  * claudeHourly is the return value of readClaudeUsageSince().
  */
-export function buildReportFromHourly({ period, claudeHourly }) {
-  const totalCost = claudeHourly.summary.totalCost;
-  // Map hourly buckets into the same daily-row shape for the bar chart
-  const daily = (claudeHourly.hourlyBuckets || []).map(h => ({
-    date: h.label,
-    claude: {
-      inputTokens:         h.inputTokens,
-      outputTokens:        h.outputTokens,
-      cacheCreationTokens: h.cacheCreationTokens,
-      cacheReadTokens:     h.cacheReadTokens,
-      totalCost:           h.totalCost
-    },
-    codex: null
-  }));
+export function buildReportFromHourly({ period, claudeHourly, codexHourly = { summary: {}, models: [], sessions: [], hourlyBuckets: [] } }) {
+  const claudeSummary = claudeHourly?.summary || {};
+  const codexSummary = codexHourly?.summary || {};
+  const totalCost = (claudeSummary.totalCost || 0) + (codexSummary.totalCost || 0);
+
+  const byLabel = new Map();
+  for (const h of (claudeHourly.hourlyBuckets || [])) {
+    byLabel.set(h.label, {
+      date: h.label,
+      claude: {
+        inputTokens:         h.inputTokens || 0,
+        outputTokens:        h.outputTokens || 0,
+        cacheCreationTokens: h.cacheCreationTokens || 0,
+        cacheReadTokens:     h.cacheReadTokens || 0,
+        totalCost:           h.totalCost || 0
+      },
+      codex: null
+    });
+  }
+  for (const h of (codexHourly.hourlyBuckets || [])) {
+    const codex = {
+      inputTokens:           h.inputTokens || 0,
+      outputTokens:          h.outputTokens || 0,
+      cachedInputTokens:     h.cachedInputTokens || 0,
+      reasoningOutputTokens: h.reasoningOutputTokens || 0,
+      totalCost:             h.totalCost || 0
+    };
+    if (byLabel.has(h.label)) byLabel.get(h.label).codex = codex;
+    else {
+      byLabel.set(h.label, {
+        date: h.label,
+        claude: null,
+        codex
+      });
+    }
+  }
+  const daily = [...byLabel.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+  const modelMap = {};
+  for (const m of (claudeHourly.models || [])) {
+    modelMap[m.name] = {
+      name: m.name,
+      totalTokens: m.totalTokens || 0,
+      cost: m.cost || 0
+    };
+  }
+  for (const m of (codexHourly.models || [])) {
+    if (!modelMap[m.name]) modelMap[m.name] = { name: m.name, totalTokens: 0, cost: 0 };
+    modelMap[m.name].totalTokens += m.totalTokens || 0;
+    modelMap[m.name].cost += m.cost || 0;
+  }
+  const models = Object.values(modelMap).map(m => ({
+    ...m,
+    pct: totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : '0'
+  })).sort((a, b) => (b.cost - a.cost) || (b.totalTokens - a.totalTokens));
+
+  const sessions = [
+    ...(claudeHourly.sessions || []),
+    ...(codexHourly.sessions || [])
+  ].sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
+
   return {
     updatedAt: new Date().toISOString(),
     period,
-    summary: claudeHourly.summary,
-    models: claudeHourly.models.map(m => ({
-      ...m,
-      pct: totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : '0'
-    })).sort((a, b) => b.cost - a.cost),
+    summary: {
+      inputTokens: (claudeSummary.inputTokens || 0) + (codexSummary.inputTokens || 0),
+      outputTokens: (claudeSummary.outputTokens || 0) + (codexSummary.outputTokens || 0),
+      cacheCreationTokens: claudeSummary.cacheCreationTokens || 0,
+      cacheReadTokens: (claudeSummary.cacheReadTokens || 0) + (codexSummary.cacheReadTokens || 0),
+      totalTokens:
+        (claudeSummary.inputTokens || 0) + (codexSummary.inputTokens || 0) +
+        (claudeSummary.outputTokens || 0) + (codexSummary.outputTokens || 0) +
+        (claudeSummary.cacheCreationTokens || 0) +
+        (claudeSummary.cacheReadTokens || 0) + (codexSummary.cacheReadTokens || 0),
+      totalCost
+    },
+    models,
     daily,
-    sessions: claudeHourly.sessions.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity))
+    sessions
   };
 }
