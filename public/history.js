@@ -273,6 +273,15 @@ function initHistorySearch() {
     searchMode = false;
     renderProjectList(allProjects);
   });
+
+  // Delegated listener for search result clicks — attached once, not per search
+  const list = document.getElementById('historyList');
+  if (list) {
+    list.addEventListener('click', e => {
+      const item = e.target.closest('.session-search-item[data-id]');
+      if (item) selectSession(item.dataset.proj, item.dataset.id);
+    });
+  }
 }
 
 async function runSearch(query) {
@@ -298,9 +307,12 @@ function renderSearchResults(results, query) {
     return;
   }
 
+  // Escape query through esc() so regex matches against already-entity-encoded text
+  // and the matched portion is safe to reinsert into innerHTML via <mark>
   function highlight(text) {
     if (!query) return esc(text);
-    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const escapedQuery = esc(query);
+    const re = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     return esc(text).replace(re, '<mark>$1</mark>');
   }
 
@@ -314,12 +326,7 @@ function renderSearchResults(results, query) {
         ).join('')}
       </div>`
     ).join('');
-
-  // Delegated listener for search result clicks
-  list.addEventListener('click', e => {
-    const item = e.target.closest('.session-search-item[data-id]');
-    if (item) selectSession(item.dataset.proj, item.dataset.id);
-  });
+  // Click listener is registered once in initHistorySearch() — not repeated here
 }
 
 // ── Markdown export ────────────────────────────────────────────────────────
@@ -328,7 +335,7 @@ function exportMarkdown() {
   const s = viewerSession;
   const lines = [];
 
-  lines.push(`# ${s.title}`);
+  lines.push(`# ${s.title.replace(/[\r\n]/g, ' ')}`);
   lines.push('');
   lines.push(`**Session:** \`${s.id}\`  `);
   lines.push(`**Project:** ${s.projectDir}  `);
