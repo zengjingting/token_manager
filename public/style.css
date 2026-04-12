@@ -227,3 +227,30 @@ body { overflow: hidden; }
 
 /* Fix view-content flex chain so height: percentages resolve correctly */
 .view-content { flex: 1; min-height: 0; overflow-y: auto; }
+
+/* ── Activity heatmap ── */
+.heatmap-grid {
+  display: flex; gap: 3px; padding: 8px 0;
+}
+.heatmap-week { display: flex; flex-direction: column; gap: 3px; }
+.heatmap-cell {
+  width: 12px; height: 12px; border-radius: 2px;
+  background: var(--border-light);
+  cursor: default; transition: opacity 0.1s;
+}
+.heatmap-cell:hover { opacity: 0.75; }
+.heatmap-labels {
+  display: flex; gap: 3px; margin-bottom: 4px; padding-left: 0;
+}
+.heatmap-month-label {
+  font-size: 9px; color: var(--text-dimmer); width: 12px;
+  white-space: nowrap; overflow: visible;
+}
+
+/* ── Billing window gauge ── */
+.billing-stat { margin-bottom: 12px; }
+.billing-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+.billing-value { font-size: 20px; font-weight: 700; color: var(--orange); font-family: var(--font-mono); }
+.billing-sub { font-size: 10px; color: var(--text-dimmer); margin-top: 2px; }
+.gauge-bar { height: 6px; background: var(--border-light); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.gauge-fill { height: 100%; background: var(--orange); border-radius: 3px; transition: width 0.4s; }

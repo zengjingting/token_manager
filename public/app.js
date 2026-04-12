@@ -403,3 +403,163 @@ function setDashView(v) {
   if (v === 'analytics' && typeof loadAnalytics === 'function') loadAnalytics();
 }
 
+// ── Analytics view ─────────────────────────────────────────────────────────
+let analyticsLoaded = false;
+let projectChartInst = null;
+
+async function loadAnalytics() {
+  if (analyticsLoaded) return;
+  analyticsLoaded = true;
+
+  const [heatmapData, projectData] = await Promise.all([
+    fetch('/api/analytics/heatmap').then(r => r.json()).catch(() => ({ days: [] })),
+    fetch('/api/analytics/projects').then(r => r.json()).catch(() => ({ projects: [] }))
+  ]);
+
+  renderHeatmap(heatmapData.days || []);
+  renderProjectChart(projectData.projects || []);
+  renderBillingWindow();
+}
+
+function renderHeatmap(days) {
+  const container = document.getElementById('heatmapContainer');
+  if (!container) return;
+
+  const byDate = {};
+  for (const d of days) byDate[d.date] = d;
+
+  const maxTokens = Math.max(...days.map(d => d.tokens), 1);
+
+  const cells = [];
+  const today = new Date();
+  for (let i = 90; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const data = byDate[dateStr] || { tokens: 0, cost: 0 };
+    cells.push({ date: dateStr, dayOfWeek: d.getDay(), ...data });
+  }
+
+  const weeks = [];
+  const firstDow = cells[0].dayOfWeek;
+  const firstWeek = Array(firstDow).fill(null).concat(cells.slice(0, 7 - firstDow));
+  weeks.push(firstWeek);
+  let idx = 7 - firstDow;
+  while (idx < cells.length) {
+    weeks.push(cells.slice(idx, idx + 7));
+    idx += 7;
+  }
+
+  function tokenColor(tokens) {
+    if (!tokens) return 'var(--border-light)';
+    const pct = tokens / maxTokens;
+    if (pct < 0.1) return 'rgba(217,119,87,0.15)';
+    if (pct < 0.3) return 'rgba(217,119,87,0.35)';
+    if (pct < 0.6) return 'rgba(217,119,87,0.60)';
+    if (pct < 0.85) return 'rgba(217,119,87,0.80)';
+    return 'rgba(217,119,87,1)';
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'heatmap-grid';
+
+  for (const week of weeks) {
+    const col = document.createElement('div');
+    col.className = 'heatmap-week';
+    for (let dow = 0; dow < 7; dow++) {
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      const data = week[dow];
+      if (data) {
+        cell.style.background = tokenColor(data.tokens);
+        cell.title = `${data.date}\nTokens: ${data.tokens.toLocaleString()}\nCost: $${(data.cost||0).toFixed(4)}`;
+      } else {
+        cell.style.opacity = '0';
+      }
+      col.appendChild(cell);
+    }
+    grid.appendChild(col);
+  }
+
+  container.innerHTML = '';
+  container.appendChild(grid);
+}
+
+function renderProjectChart(projects) {
+  if (!projects.length) return;
+  if (projectChartInst) projectChartInst.destroy();
+
+  const top = projects.slice(0, 15);
+  const COLORS = ['#D97757','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#10B981',
+                  '#EC4899','#14B8A6','#F97316','#6366F1','#84CC16','#06B6D4',
+                  '#A855F7','#22C55E','#EAB308'];
+
+  projectChartInst = new Chart(document.getElementById('projectChart'), {
+    type: 'bar',
+    data: {
+      labels: top.map(p => p.name),
+      datasets: [{
+        label: 'Cost (USD)',
+        data: top.map(p => p.totalCost),
+        backgroundColor: top.map((_, i) => COLORS[i % COLORS.length] + 'CC'),
+        borderColor:     top.map((_, i) => COLORS[i % COLORS.length]),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => ` $${Number(ctx.raw).toFixed(4)}`
+        }}
+      },
+      scales: {
+        x: { ticks: { callback: v => `$${v.toFixed(3)}`, font: { size: 10 } } },
+        y: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderBillingWindow() {
+  const panel = document.getElementById('billingWindowPanel');
+  if (!panel) return;
+  panel.innerHTML = '<div style="color:var(--text-dimmer);font-size:11px">加载中...</div>';
+
+  fetch('/api/usage?period=5h').then(r => r.json()).then(report => {
+    const s = report.summary;
+    if (!s) return;
+    const totalTok = s.totalTokens || 0;
+    const cost = s.totalCost || 0;
+    const CAP = 1_000_000;
+    const pct = Math.min(totalTok / CAP * 100, 100).toFixed(1);
+
+    panel.innerHTML = `
+      <div class="billing-stat">
+        <div class="billing-label">${lang === 'zh' ? '本窗口 Token 用量' : 'Tokens This Window'}</div>
+        <div class="billing-value">${fmt(totalTok)}</div>
+        <div class="billing-sub">$${cost.toFixed(4)} ${lang === 'zh' ? '费用' : 'cost'}</div>
+        <div class="gauge-bar">
+          <div class="gauge-fill" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text-dimmer);margin-top:3px">${pct}% of 1M</div>
+      </div>
+      <div class="billing-stat">
+        <div class="billing-label">${lang === 'zh' ? '输入' : 'Input'}</div>
+        <div style="font-size:13px;font-family:var(--font-mono)">${fmt(s.inputTokens)}</div>
+      </div>
+      <div class="billing-stat">
+        <div class="billing-label">${lang === 'zh' ? '输出' : 'Output'}</div>
+        <div style="font-size:13px;font-family:var(--font-mono)">${fmt(s.outputTokens)}</div>
+      </div>
+      <div class="billing-stat">
+        <div class="billing-label">${lang === 'zh' ? '缓存' : 'Cache'}</div>
+        <div style="font-size:13px;font-family:var(--font-mono)">${fmt((s.cacheReadTokens||0) + (s.cacheCreationTokens||0))}</div>
+      </div>`;
+  }).catch(() => {
+    panel.innerHTML = '<div style="color:var(--text-dimmer);font-size:11px">—</div>';
+  });
+}
+
