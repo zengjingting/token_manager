@@ -19,12 +19,6 @@
     }
     body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
 
-    /* ── Header ── */
-    .header { display: flex; align-items: center; justify-content: space-between; padding: 13px 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
-    .header-left  { display: flex; align-items: center; gap: 16px; }
-    .header-title { color: var(--orange); font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .header-status { color: var(--text-dim); font-size: 11px; font-family: var(--font-mono); }
 
     /* ── Lang toggle ── */
     .lang-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 10px; cursor: pointer; font-family: var(--font); font-size: 11px; border-radius: 5px; transition: all 0.15s; }
@@ -32,7 +26,6 @@
     .lang-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); font-weight: 600; }
 
     /* ── Period bar ── */
-    .period-bar { display: flex; align-items: center; gap: 6px; padding: 10px 24px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .period-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 5px 16px; cursor: pointer; font-family: var(--font); font-size: 12px; border-radius: 6px; transition: all 0.15s; }
     .period-btn:hover  { border-color: var(--orange-dim); color: var(--orange-dim); background: var(--orange-faint); }
     .period-btn.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); font-weight: 600; }
@@ -218,7 +211,7 @@ body { overflow: hidden; }
 .history-layout {
   display: grid;
   grid-template-columns: 260px 1fr;
-  height: 100%;
+  height: calc(100vh - 45px); /* subtract context-bar height */
   overflow: hidden;
 }
 .history-sidebar {
@@ -231,4 +224,6 @@ body { overflow: hidden; }
   background: var(--bg);
   padding: 20px 24px;
 }
-.history-layout { height: calc(100vh - 45px); } /* subtract context-bar */
+
+/* Fix view-content flex chain so height: percentages resolve correctly */
+.view-content { flex: 1; min-height: 0; overflow-y: auto; }

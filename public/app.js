@@ -1,11 +1,11 @@
 // ── i18n ──────────────────────────────────────────────────────────────────
 const T = {
   zh: {
-    title: '▸ Token 用量看板',
+    title: '▸ Token 用量看板', hTitle: '▸ Token',
     connecting: '连接中...', loading: '加载中...', updated: '更新于',
     reconnecting: '重连中...', parseError: '解析错误',
     pb: { '5h':'5小时', '1d':'今日', '3d':'3天', '7d':'7天', 'custom':'自定义' },
-    apply: '应用',
+    apply: '应用', applyCustom: '应用',
     lTokens: '总 Token', lCost: '总费用', lCostSub: 'USD',
     lCache: '缓存命中', lCacheSub: '读取 / (读取 + 创建)',
     lModels: '模型数',
@@ -29,11 +29,11 @@ const T = {
     lBillingWindow: '当前计费窗口 (5h)',
   },
   en: {
-    title: '▸ Token Dashboard',
+    title: '▸ Token Dashboard', hTitle: '▸ Token',
     connecting: 'CONNECTING...', loading: 'LOADING...', updated: 'UPDATED',
     reconnecting: 'RECONNECTING...', parseError: 'PARSE ERROR',
     pb: { '5h':'5H', '1d':'1D', '3d':'3D', '7d':'7D', 'custom':'CUSTOM' },
-    apply: 'APPLY',
+    apply: 'APPLY', applyCustom: 'APPLY',
     lTokens: 'TOTAL TOKENS', lCost: 'TOTAL COST', lCostSub: 'USD',
     lCache: 'CACHE HIT', lCacheSub: 'read / (read + create)',
     lModels: 'MODELS USED',
@@ -370,7 +370,9 @@ applyStaticLabels();
 connect('1d');
 
 // ── Sidebar navigation ─────────────────────────────────────────────────────
+let currentView = 'dashboard';
 function switchView(viewName) {
+  currentView = viewName;
   document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('contextBarDashboard').classList.toggle('hidden', viewName !== 'dashboard');
