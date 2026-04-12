@@ -23,6 +23,10 @@ const T = {
     tipCost:    'Claude + Codex 费用合计（USD）',
     tipCache:   '缓存读取 ÷ (缓存读取 + 缓存创建)',
     tipModels:  '本周期内使用的不同模型数量',
+    navDashboard: '仪表盘', navHistory: '会话历史',
+    dashOverview: '概览', dashAnalytics: '深度分析',
+    lHeatmap: '近90天活动热力图', lProjectChart: '项目成本分布',
+    lBillingWindow: '当前计费窗口 (5h)',
   },
   en: {
     title: '▸ Token Dashboard',
@@ -47,6 +51,10 @@ const T = {
     tipCost:    'Claude + Codex combined cost (USD)',
     tipCache:   'cache_read ÷ (cache_read + cache_creation)',
     tipModels:  'Distinct models used in this period',
+    navDashboard: 'Dashboard', navHistory: 'History',
+    dashOverview: 'Overview', dashAnalytics: 'Analytics',
+    lHeatmap: '90-Day Activity Heatmap', lProjectChart: 'Project Cost Breakdown',
+    lBillingWindow: 'Current Billing Window (5h)',
   }
 };
 
@@ -352,3 +360,46 @@ document.getElementById('applyCustom').addEventListener('click', () => {
 // ── Boot ──────────────────────────────────────────────────────────────────
 applyStaticLabels();
 connect('1d');
+
+// ── Sidebar navigation ─────────────────────────────────────────────────────
+function switchView(viewName) {
+  document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('contextBarDashboard').classList.toggle('hidden', viewName !== 'dashboard');
+  document.getElementById('contextBarHistory').classList.toggle('hidden', viewName !== 'history');
+
+  const viewEl = document.getElementById(`view-${viewName}`);
+  if (viewEl) viewEl.classList.add('active');
+  const navEl = document.getElementById(`nav${viewName.charAt(0).toUpperCase() + viewName.slice(1)}`);
+  if (navEl) navEl.classList.add('active');
+
+  if (viewName === 'history' && typeof loadHistorySessions === 'function') {
+    loadHistorySessions();
+  }
+}
+
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+// ── Dashboard view toggle (overview / analytics) ───────────────────────────
+let currentDashView = 'overview';
+function setDashView(v) {
+  currentDashView = v;
+  document.getElementById('dashboardOverview').style.display  = v === 'overview'  ? '' : 'none';
+  document.getElementById('dashboardAnalytics').style.display = v === 'analytics' ? '' : 'none';
+  document.getElementById('dashViewOverview').classList.toggle('active',  v === 'overview');
+  document.getElementById('dashViewAnalytics').classList.toggle('active', v === 'analytics');
+  if (v === 'analytics' && typeof loadAnalytics === 'function') loadAnalytics();
+}
+
+// Update i18n for new elements
+const _origApplyStaticLabels = applyStaticLabels;
+function applyStaticLabels() {
+  _origApplyStaticLabels();
+  const L = T[lang];
+  if (L.navDashboard) document.getElementById('navLabelDashboard').textContent = L.navDashboard;
+  if (L.navHistory)   document.getElementById('navLabelHistory').textContent   = L.navHistory;
+  if (L.dashOverview)  document.getElementById('dashViewOverview').textContent  = L.dashOverview;
+  if (L.dashAnalytics) document.getElementById('dashViewAnalytics').textContent = L.dashAnalytics;
+}

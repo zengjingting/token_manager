@@ -14,98 +14,170 @@
   <div class="overlay-text" id="overlayText">加载中...</div>
 </div>
 
-<div class="header">
-  <div class="header-left">
-    <div class="header-title" id="hTitle">▸ Token 用量看板</div>
-  </div>
-  <div class="header-right">
-    <div class="header-status" id="status">连接中...</div>
-    <button class="lang-btn active" id="langZh" onclick="setLang('zh')">中文</button>
-    <button class="lang-btn"        id="langEn" onclick="setLang('en')">EN</button>
-  </div>
-</div>
+<div class="app">
 
-<div class="period-bar">
-  <button class="period-btn"        data-period="5h"     id="pb-5h">5小时</button>
-  <button class="period-btn active" data-period="1d"     id="pb-1d">今日</button>
-  <button class="period-btn"        data-period="3d"     id="pb-3d">3天</button>
-  <button class="period-btn"        data-period="7d"     id="pb-7d">7天</button>
-  <button class="period-btn"        data-period="custom" id="pb-custom">自定义</button>
-  <div class="custom-range" id="customRange">
-    <input type="date" id="sinceInput">
-    <span style="color:var(--text-dim)">→</span>
-    <input type="date" id="untilInput">
-    <button id="applyCustom">应用</button>
-  </div>
-</div>
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar">
+    <div class="sidebar-brand" id="hTitle">▸ Token</div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" data-view="dashboard" id="navDashboard">
+        <span class="nav-icon">⊞</span>
+        <span class="nav-label" id="navLabelDashboard">仪表盘</span>
+      </button>
+      <button class="nav-item" data-view="history" id="navHistory">
+        <span class="nav-icon">≡</span>
+        <span class="nav-label" id="navLabelHistory">会话历史</span>
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-status" id="status">连接中...</div>
+      <div class="sidebar-lang">
+        <button class="lang-btn active" id="langZh" onclick="setLang('zh')">中文</button>
+        <button class="lang-btn"        id="langEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+  </nav>
 
-<div class="main">
+  <!-- ── Main content ── -->
+  <div class="main-content">
 
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-tip" id="tipTokens"></div>
-      <div class="stat-label" id="lTokens">总 Token</div>
-      <div class="stat-value" id="sTokens">—</div>
-      <div class="stat-sub"  id="sTokensSub"></div>
+    <!-- Period bar (dashboard only) -->
+    <div class="context-bar" id="contextBarDashboard">
+      <button class="period-btn"        data-period="5h"     id="pb-5h">5小时</button>
+      <button class="period-btn active" data-period="1d"     id="pb-1d">今日</button>
+      <button class="period-btn"        data-period="3d"     id="pb-3d">3天</button>
+      <button class="period-btn"        data-period="7d"     id="pb-7d">7天</button>
+      <button class="period-btn"        data-period="custom" id="pb-custom">自定义</button>
+      <div class="custom-range" id="customRange">
+        <input type="date" id="sinceInput">
+        <span style="color:var(--text-dim)">→</span>
+        <input type="date" id="untilInput">
+        <button id="applyCustom">应用</button>
+      </div>
+      <!-- Analytics view toggle -->
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="period-btn active" id="dashViewOverview" onclick="setDashView('overview')">概览</button>
+        <button class="period-btn"        id="dashViewAnalytics" onclick="setDashView('analytics')">深度分析</button>
+      </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-tip" id="tipCost"></div>
-      <div class="stat-label" id="lCost">总费用</div>
-      <div class="stat-value" id="sCost">—</div>
-      <div class="stat-sub" id="lCostSub">USD</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-tip" id="tipCache"></div>
-      <div class="stat-label" id="lCache">缓存命中</div>
-      <div class="stat-value" id="sCache">—</div>
-      <div class="stat-sub" id="lCacheSub">读取 / (读取 + 创建)</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-tip" id="tipModels"></div>
-      <div class="stat-label" id="lModels">模型数</div>
-      <div class="stat-value" id="sModels">—</div>
-      <div class="stat-sub"  id="sModelNames"></div>
-    </div>
-  </div>
 
-  <div class="charts-row">
-    <div class="chart-panel" id="tokenChartPanel">
-      <div class="panel-title" id="lTokenChart">每日 Token 分布</div>
-      <div class="series-title" id="lSeriesCtrl">可见项</div>
-      <div class="series-controls" id="tokenSeriesControls"></div>
-      <div class="chart-wrap"><canvas id="tokenChart"></canvas></div>
+    <!-- History search bar (history tab only) -->
+    <div class="context-bar hidden" id="contextBarHistory">
+      <input type="text" id="historySearch" placeholder="搜索会话内容..." style="flex:1;max-width:400px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 10px;font-family:var(--font);font-size:12px;border-radius:6px;">
+      <button class="period-btn" id="historySearchBtn">搜索</button>
+      <button class="period-btn" id="historyClearBtn" style="display:none">× 清除</button>
     </div>
-    <div class="chart-panel">
-      <div class="panel-title" id="lModelChart">模型分布</div>
-      <div class="chart-wrap"><canvas id="modelChart"></canvas></div>
-    </div>
-  </div>
 
-  <div class="session-panel">
-    <div class="session-header">
-      <span class="panel-title" id="lSessions" style="margin:0;border:none;padding:0">会话列表</span>
-    </div>
-    <div class="session-scroll">
-      <table>
-        <thead><tr>
-          <th id="thSrc">来源</th>
-          <th id="thSession">会话</th>
-          <th id="thTokens">TOKEN</th>
-          <th id="thIn">输入</th>
-          <th id="thOut">输出</th>
-          <th id="thCache">缓存</th>
-          <th id="thCost">费用</th>
-          <th id="thActivity">最后活动</th>
-          <th id="thModels">模型</th>
-        </tr></thead>
-        <tbody id="sessionBody">
-          <tr><td colspan="9" class="placeholder">加载中...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <!-- Views -->
+    <div class="view-content">
 
-</div>
+      <!-- Dashboard view -->
+      <div class="view-pane active" id="view-dashboard">
+        <div class="main" id="dashboardOverview">
+
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-tip" id="tipTokens"></div>
+              <div class="stat-label" id="lTokens">总 Token</div>
+              <div class="stat-value" id="sTokens">—</div>
+              <div class="stat-sub"  id="sTokensSub"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-tip" id="tipCost"></div>
+              <div class="stat-label" id="lCost">总费用</div>
+              <div class="stat-value" id="sCost">—</div>
+              <div class="stat-sub" id="lCostSub">USD</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-tip" id="tipCache"></div>
+              <div class="stat-label" id="lCache">缓存命中</div>
+              <div class="stat-value" id="sCache">—</div>
+              <div class="stat-sub" id="lCacheSub">读取 / (读取 + 创建)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-tip" id="tipModels"></div>
+              <div class="stat-label" id="lModels">模型数</div>
+              <div class="stat-value" id="sModels">—</div>
+              <div class="stat-sub"  id="sModelNames"></div>
+            </div>
+          </div>
+
+          <div class="charts-row">
+            <div class="chart-panel" id="tokenChartPanel">
+              <div class="panel-title" id="lTokenChart">每日 Token 分布</div>
+              <div class="series-title" id="lSeriesCtrl">可见项</div>
+              <div class="series-controls" id="tokenSeriesControls"></div>
+              <div class="chart-wrap"><canvas id="tokenChart"></canvas></div>
+            </div>
+            <div class="chart-panel">
+              <div class="panel-title" id="lModelChart">模型分布</div>
+              <div class="chart-wrap"><canvas id="modelChart"></canvas></div>
+            </div>
+          </div>
+
+          <div class="session-panel">
+            <div class="session-header">
+              <span class="panel-title" id="lSessions" style="margin:0;border:none;padding:0">会话列表</span>
+            </div>
+            <div class="session-scroll">
+              <table>
+                <thead><tr>
+                  <th id="thSrc">来源</th>
+                  <th id="thSession">会话</th>
+                  <th id="thTokens">TOKEN</th>
+                  <th id="thIn">输入</th>
+                  <th id="thOut">输出</th>
+                  <th id="thCache">缓存</th>
+                  <th id="thCost">费用</th>
+                  <th id="thActivity">最后活动</th>
+                  <th id="thModels">模型</th>
+                </tr></thead>
+                <tbody id="sessionBody">
+                  <tr><td colspan="9" class="placeholder">加载中...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /dashboardOverview -->
+
+        <!-- Analytics view (hidden by default) -->
+        <div class="main" id="dashboardAnalytics" style="display:none">
+          <div class="chart-panel" style="margin-bottom:14px">
+            <div class="panel-title" id="lHeatmap">近90天活动热力图</div>
+            <div id="heatmapContainer" style="overflow-x:auto"></div>
+          </div>
+          <div class="charts-row">
+            <div class="chart-panel">
+              <div class="panel-title" id="lProjectChart">项目成本分布</div>
+              <div class="chart-wrap" style="height:300px"><canvas id="projectChart"></canvas></div>
+            </div>
+            <div class="chart-panel">
+              <div class="panel-title" id="lBillingWindow">当前计费窗口 (5h)</div>
+              <div id="billingWindowPanel" style="padding:8px 0"></div>
+            </div>
+          </div>
+        </div><!-- /dashboardAnalytics -->
+
+      </div><!-- /view-dashboard -->
+
+      <!-- History view -->
+      <div class="view-pane" id="view-history">
+        <div class="history-layout">
+          <div class="history-sidebar" id="historySidebar">
+            <div class="history-list" id="historyList">
+              <div class="placeholder" style="padding:24px">加载中...</div>
+            </div>
+          </div>
+          <div class="history-viewer" id="historyViewer">
+            <div class="placeholder" style="padding:48px;text-align:center">← 从左侧选择一个会话</div>
+          </div>
+        </div>
+      </div><!-- /view-history -->
+
+    </div><!-- /view-content -->
+  </div><!-- /main-content -->
+</div><!-- /app -->
 
 <script src="app.js"></script>
 <script src="history.js"></script>
