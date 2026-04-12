@@ -92,6 +92,14 @@ function applyStaticLabels() {
   // chart title depends on current period
   document.getElementById('lTokenChart').textContent =
     currentPeriod === '5h' ? L.lTokenChart5h : L.lTokenChart;
+  // sidebar + analytics labels
+  if (L.navDashboard) document.getElementById('navLabelDashboard').textContent = L.navDashboard;
+  if (L.navHistory)   document.getElementById('navLabelHistory').textContent   = L.navHistory;
+  if (L.dashOverview)  document.getElementById('dashViewOverview').textContent  = L.dashOverview;
+  if (L.dashAnalytics) document.getElementById('dashViewAnalytics').textContent = L.dashAnalytics;
+  if (L.lHeatmap)      { const el = document.getElementById('lHeatmap');      if (el) el.textContent = L.lHeatmap; }
+  if (L.lProjectChart) { const el = document.getElementById('lProjectChart'); if (el) el.textContent = L.lProjectChart; }
+  if (L.lBillingWindow){ const el = document.getElementById('lBillingWindow');if (el) el.textContent = L.lBillingWindow; }
 }
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -393,13 +401,3 @@ function setDashView(v) {
   if (v === 'analytics' && typeof loadAnalytics === 'function') loadAnalytics();
 }
 
-// Update i18n for new elements
-const _origApplyStaticLabels = applyStaticLabels;
-function applyStaticLabels() {
-  _origApplyStaticLabels();
-  const L = T[lang];
-  if (L.navDashboard) document.getElementById('navLabelDashboard').textContent = L.navDashboard;
-  if (L.navHistory)   document.getElementById('navLabelHistory').textContent   = L.navHistory;
-  if (L.dashOverview)  document.getElementById('dashViewOverview').textContent  = L.dashOverview;
-  if (L.dashAnalytics) document.getElementById('dashViewAnalytics').textContent = L.dashAnalytics;
-}
