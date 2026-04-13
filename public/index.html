@@ -54,11 +54,6 @@
         <input type="date" id="untilInput">
         <button id="applyCustom">应用</button>
       </div>
-      <!-- Analytics view toggle -->
-      <div style="margin-left:auto;display:flex;gap:6px">
-        <button class="period-btn active" id="dashViewOverview" onclick="setDashView('overview')">概览</button>
-        <button class="period-btn"        id="dashViewAnalytics" onclick="setDashView('analytics')">深度分析</button>
-      </div>
     </div>
 
     <!-- History search bar (history tab only) -->
@@ -78,25 +73,37 @@
           <div class="stats-row">
             <div class="stat-card">
               <div class="stat-tip" id="tipTokens"></div>
-              <div class="stat-label" id="lTokens">总 Token</div>
+              <div class="stat-label-row">
+                <div class="stat-label" id="lTokens">总 Token</div>
+                <span class="stat-info-icon" data-tip="tipTokens" aria-label="说明">!</span>
+              </div>
               <div class="stat-value" id="sTokens">—</div>
               <div class="stat-sub"  id="sTokensSub"></div>
             </div>
             <div class="stat-card">
               <div class="stat-tip" id="tipCost"></div>
-              <div class="stat-label" id="lCost">总费用</div>
+              <div class="stat-label-row">
+                <div class="stat-label" id="lCost">总费用</div>
+                <span class="stat-info-icon" data-tip="tipCost" aria-label="说明">!</span>
+              </div>
               <div class="stat-value" id="sCost">—</div>
-              <div class="stat-sub" id="lCostSub">USD</div>
+              <div class="stat-sub" id="lCostSub">仅 claude code</div>
             </div>
             <div class="stat-card">
               <div class="stat-tip" id="tipCache"></div>
-              <div class="stat-label" id="lCache">缓存命中</div>
+              <div class="stat-label-row">
+                <div class="stat-label" id="lCache">缓存命中</div>
+                <span class="stat-info-icon" data-tip="tipCache" aria-label="说明">!</span>
+              </div>
               <div class="stat-value" id="sCache">—</div>
-              <div class="stat-sub" id="lCacheSub">读取 / (读取 + 创建)</div>
+              <div class="stat-sub" id="lCacheSub">仅 claude code</div>
             </div>
             <div class="stat-card">
               <div class="stat-tip" id="tipModels"></div>
-              <div class="stat-label" id="lModels">模型数</div>
+              <div class="stat-label-row">
+                <div class="stat-label" id="lModels">模型数</div>
+                <span class="stat-info-icon" data-tip="tipModels" aria-label="说明">!</span>
+              </div>
               <div class="stat-value" id="sModels">—</div>
               <div class="stat-sub"  id="sModelNames"></div>
             </div>
@@ -113,6 +120,11 @@
               <div class="panel-title" id="lModelChart">模型分布</div>
               <div class="chart-wrap"><canvas id="modelChart"></canvas></div>
             </div>
+          </div>
+
+          <div class="chart-panel" style="margin-bottom:0">
+            <div class="panel-title" id="lProjectChart">项目成本分布</div>
+            <div class="chart-wrap" style="height:260px"><canvas id="projectChart"></canvas></div>
           </div>
 
           <div class="session-panel">
@@ -140,24 +152,6 @@
           </div>
 
         </div><!-- /dashboardOverview -->
-
-        <!-- Analytics view (hidden by default) -->
-        <div class="main" id="dashboardAnalytics" style="display:none">
-          <div class="chart-panel" style="margin-bottom:14px">
-            <div class="panel-title" id="lHeatmap">近90天活动热力图</div>
-            <div id="heatmapContainer" style="overflow-x:auto"></div>
-          </div>
-          <div class="charts-row">
-            <div class="chart-panel">
-              <div class="panel-title" id="lProjectChart">项目成本分布</div>
-              <div class="chart-wrap" style="height:300px"><canvas id="projectChart"></canvas></div>
-            </div>
-            <div class="chart-panel">
-              <div class="panel-title" id="lBillingWindow">当前计费窗口 (5h)</div>
-              <div id="billingWindowPanel" style="padding:8px 0"></div>
-            </div>
-          </div>
-        </div><!-- /dashboardAnalytics -->
 
       </div><!-- /view-dashboard -->
 
