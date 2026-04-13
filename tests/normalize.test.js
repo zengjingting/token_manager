@@ -37,6 +37,7 @@ test('buildReportFromCLI summary exposes claudeCost, codexCost, claudeCacheReadT
   });
   assert.equal(report.summary.claudeCost, 1.25);
   assert.equal(report.summary.codexCost, 0.40);
+  // 1.25 and 0.40 are both exactly representable in IEEE 754, so their sum is exact
   assert.equal(report.summary.totalCost, 1.65);
   assert.equal(report.summary.claudeCacheReadTokens, 1000);
 });
@@ -55,5 +56,8 @@ test('buildReportFromHourly summary exposes claudeCost, codexCost, claudeCacheRe
   });
   assert.equal(report.summary.claudeCost, 1.25);
   assert.equal(report.summary.codexCost, 0.40);
+  // totalCost is claudeSummary.totalCost + codexSummary.totalCost
+  assert.equal(report.summary.totalCost, 1.65); // 1.25 + 0.40, both IEEE 754 exact
   assert.equal(report.summary.claudeCacheReadTokens, 1000);
+  assert.equal(report.summary.cacheReadTokens, 1500); // claude 1000 + codex 500
 });
