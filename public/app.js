@@ -6,8 +6,8 @@ const T = {
     reconnecting: '重连中...', parseError: '解析错误',
     pb: { '5h':'5小时', '1d':'今日', '3d':'3天', '7d':'7天', 'custom':'自定义' },
     apply: '应用', applyCustom: '应用',
-    lTokens: '总 Token', lCost: '总费用', lCostSub: 'USD',
-    lCache: '缓存命中', lCacheSub: '读取 / (读取 + 创建)',
+    lTokens: '总 Token', lCost: '总费用',
+    lCache: '缓存命中', lCacheSub: '仅 claude code',
     lModels: '模型数',
     lSeriesCtrl: '可见项',
     lTokenChart5h: '近5小时 Token 分布（按小时）',
@@ -19,14 +19,12 @@ const T = {
     dsClaudeIn:'Claude 输入', dsClaudeOut:'Claude 输出', dsClaudeCache:'Claude 缓存',
     dsCodexIn:'Codex 输入', dsCodexOut:'Codex 输出', dsCodexCache:'Codex 缓存',
     inSub:'输入', outSub:'输出',
-    tipTokens:  '输入 + 输出 + 缓存创建 + 缓存读取',
-    tipCost:    'Claude + Codex 费用合计（USD）',
-    tipCache:   '缓存读取 ÷ (缓存读取 + 缓存创建)',
+    tipTokens:  '本周期内 Claude + Codex 消耗的 Token 数量之和，包括输入 + 输出 + 缓存创建 + 缓存读取',
+    tipCost:    '本周期内 Claude + Codex 的合计 API 费用',
+    tipCache:   '仅 Claude Code 的缓存读取 ÷ (缓存读取 + 缓存创建)',
     tipModels:  '本周期内使用的不同模型数量',
     navDashboard: '仪表盘', navHistory: '会话历史',
-    dashOverview: '概览', dashAnalytics: '深度分析',
-    lHeatmap: '近90天活动热力图', lProjectChart: '项目成本分布',
-    lBillingWindow: '当前计费窗口 (5h)',
+    lProjectChart: '项目成本分布',
   },
   en: {
     title: '▸ Token Dashboard', hTitle: '▸ Token',
@@ -34,8 +32,8 @@ const T = {
     reconnecting: 'RECONNECTING...', parseError: 'PARSE ERROR',
     pb: { '5h':'5H', '1d':'1D', '3d':'3D', '7d':'7D', 'custom':'CUSTOM' },
     apply: 'APPLY', applyCustom: 'APPLY',
-    lTokens: 'TOTAL TOKENS', lCost: 'TOTAL COST', lCostSub: 'USD',
-    lCache: 'CACHE HIT', lCacheSub: 'read / (read + create)',
+    lTokens: 'TOTAL TOKENS', lCost: 'TOTAL COST',
+    lCache: 'CACHE HIT', lCacheSub: 'Claude Code only',
     lModels: 'MODELS USED',
     lSeriesCtrl: 'Visible Series',
     lTokenChart5h: 'Last 5h Token Breakdown (hourly)',
@@ -47,14 +45,12 @@ const T = {
     dsClaudeIn:'Claude In', dsClaudeOut:'Claude Out', dsClaudeCache:'Claude Cache',
     dsCodexIn:'Codex In', dsCodexOut:'Codex Out', dsCodexCache:'Codex Cache',
     inSub:'in', outSub:'out',
-    tipTokens:  'input + output + cache_creation + cache_read',
-    tipCost:    'Claude + Codex combined cost (USD)',
-    tipCache:   'cache_read ÷ (cache_read + cache_creation)',
+    tipTokens:  'Total Tokens consumed by Claude + Codex in this period (input + output + cache creation + cache read)',
+    tipCost:    'Combined Claude + Codex API cost for this period',
+    tipCache:   'Claude Code only — cache_read ÷ (cache_read + cache_creation)',
     tipModels:  'Distinct models used in this period',
     navDashboard: 'Dashboard', navHistory: 'History',
-    dashOverview: 'Overview', dashAnalytics: 'Analytics',
-    lHeatmap: '90-Day Activity Heatmap', lProjectChart: 'Project Cost Breakdown',
-    lBillingWindow: 'Current Billing Window (5h)',
+    lProjectChart: 'Project Cost Breakdown',
   }
 };
 
@@ -72,7 +68,7 @@ function setLang(l) {
 function applyStaticLabels() {
   const L = T[lang];
   ['hTitle','pb-5h','pb-1d','pb-3d','pb-7d','pb-custom',
-   'applyCustom','lTokens','lCost','lCostSub','lCache','lCacheSub',
+   'applyCustom','lTokens','lCost','lCache','lCacheSub',
    'lModels','lSeriesCtrl','lModelChart','lSessions',
    'thSrc','thSession','thTokens','thIn','thOut','thCache','thCost','thActivity','thModels'
   ].forEach(id => {
@@ -95,11 +91,7 @@ function applyStaticLabels() {
   // sidebar + analytics labels
   if (L.navDashboard) document.getElementById('navLabelDashboard').textContent = L.navDashboard;
   if (L.navHistory)   document.getElementById('navLabelHistory').textContent   = L.navHistory;
-  if (L.dashOverview)  document.getElementById('dashViewOverview').textContent  = L.dashOverview;
-  if (L.dashAnalytics) document.getElementById('dashViewAnalytics').textContent = L.dashAnalytics;
-  if (L.lHeatmap)      { const el = document.getElementById('lHeatmap');      if (el) el.textContent = L.lHeatmap; }
   if (L.lProjectChart) { const el = document.getElementById('lProjectChart'); if (el) el.textContent = L.lProjectChart; }
-  if (L.lBillingWindow){ const el = document.getElementById('lBillingWindow');if (el) el.textContent = L.lBillingWindow; }
 }
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -368,6 +360,21 @@ document.getElementById('applyCustom').addEventListener('click', () => {
 // ── Boot ──────────────────────────────────────────────────────────────────
 applyStaticLabels();
 connect('1d');
+loadProjectChart();
+
+// ── Stat-card tooltips: icon-triggered (Wave 1) ───────────────────────────
+document.querySelectorAll('.stat-info-icon').forEach(icon => {
+  const tipId = icon.dataset.tip;
+  const tip = tipId && document.getElementById(tipId);
+  if (!tip) return;
+  icon.addEventListener('mouseenter', () => {
+    const rect = icon.getBoundingClientRect();
+    tip.style.top  = (rect.top - 8) + 'px';
+    tip.style.left = (rect.left + rect.width / 2) + 'px';
+    tip.style.display = 'block';
+  });
+  icon.addEventListener('mouseleave', () => { tip.style.display = ''; });
+});
 
 // ── Sidebar navigation ─────────────────────────────────────────────────────
 let currentView = 'dashboard';
@@ -392,99 +399,19 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
-// ── Dashboard view toggle (overview / analytics) ───────────────────────────
-let currentDashView = 'overview';
-function setDashView(v) {
-  currentDashView = v;
-  document.getElementById('dashboardOverview').style.display  = v === 'overview'  ? '' : 'none';
-  document.getElementById('dashboardAnalytics').style.display = v === 'analytics' ? '' : 'none';
-  document.getElementById('dashViewOverview').classList.toggle('active',  v === 'overview');
-  document.getElementById('dashViewAnalytics').classList.toggle('active', v === 'analytics');
-  if (v === 'analytics' && typeof loadAnalytics === 'function') loadAnalytics();
-}
-
-// ── Analytics view ─────────────────────────────────────────────────────────
-let analyticsLoaded = false;
+// ── Project cost chart (loaded once on boot) ───────────────────────────────
 let projectChartInst = null;
+let projectChartLoaded = false;
 
-async function loadAnalytics() {
-  if (analyticsLoaded) return;
-  analyticsLoaded = true;
+async function loadProjectChart() {
+  if (projectChartLoaded) return;
+  projectChartLoaded = true;
   try {
-    const [heatmapData, projectData] = await Promise.all([
-      fetch('/api/analytics/heatmap').then(r => r.json()).catch(() => ({ days: [] })),
-      fetch('/api/analytics/projects').then(r => r.json()).catch(() => ({ projects: [] }))
-    ]);
-    renderHeatmap(heatmapData.days || []);
-    renderProjectChart(projectData.projects || []);
-    renderBillingWindow();
-  } catch (e) {
-    analyticsLoaded = false; // allow retry on unexpected failure
+    const data = await fetch('/api/analytics/projects').then(r => r.json()).catch(() => ({ projects: [] }));
+    renderProjectChart(data.projects || []);
+  } catch {
+    projectChartLoaded = false;
   }
-}
-
-function renderHeatmap(days) {
-  const container = document.getElementById('heatmapContainer');
-  if (!container) return;
-
-  const byDate = {};
-  for (const d of days) byDate[d.date] = d;
-
-  const maxTokens = days.reduce((m, d) => Math.max(m, d.tokens), 1);
-
-  const cells = [];
-  const today = new Date();
-  for (let i = 90; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const data = byDate[dateStr] || { tokens: 0, cost: 0 };
-    cells.push({ date: dateStr, dayOfWeek: d.getDay(), ...data });
-  }
-
-  const weeks = [];
-  const firstDow = cells[0].dayOfWeek;
-  const firstWeek = Array(firstDow).fill(null).concat(cells.slice(0, 7 - firstDow));
-  weeks.push(firstWeek);
-  let idx = 7 - firstDow;
-  while (idx < cells.length) {
-    weeks.push(cells.slice(idx, idx + 7));
-    idx += 7;
-  }
-
-  function tokenColor(tokens) {
-    if (!tokens) return 'var(--border-light)';
-    const pct = tokens / maxTokens;
-    if (pct < 0.1) return 'rgba(217,119,87,0.15)';
-    if (pct < 0.3) return 'rgba(217,119,87,0.35)';
-    if (pct < 0.6) return 'rgba(217,119,87,0.60)';
-    if (pct < 0.85) return 'rgba(217,119,87,0.80)';
-    return 'rgba(217,119,87,1)';
-  }
-
-  const grid = document.createElement('div');
-  grid.className = 'heatmap-grid';
-
-  for (const week of weeks) {
-    const col = document.createElement('div');
-    col.className = 'heatmap-week';
-    for (let dow = 0; dow < 7; dow++) {
-      const cell = document.createElement('div');
-      cell.className = 'heatmap-cell';
-      const data = week[dow];
-      if (data) {
-        cell.style.background = tokenColor(data.tokens);
-        cell.title = `${data.date}\nTokens: ${data.tokens.toLocaleString()}\nCost: $${(data.cost||0).toFixed(4)}`;
-      } else {
-        cell.style.opacity = '0';
-      }
-      col.appendChild(cell);
-    }
-    grid.appendChild(col);
-  }
-
-  container.innerHTML = '';
-  container.appendChild(grid);
 }
 
 function renderProjectChart(projects) {
@@ -522,46 +449,6 @@ function renderProjectChart(projects) {
         y: { ticks: { font: { size: 10 } } }
       }
     }
-  });
-}
-
-function renderBillingWindow() {
-  const panel = document.getElementById('billingWindowPanel');
-  if (!panel) return;
-  panel.innerHTML = `<div style="color:var(--text-dimmer);font-size:11px">${lang === 'zh' ? '加载中...' : 'Loading...'}</div>`;
-
-  fetch('/api/usage?period=5h').then(r => r.json()).then(report => {
-    const s = report.summary;
-    if (!s) return;
-    const totalTok = s.totalTokens || 0;
-    const cost = s.totalCost || 0;
-    const CAP = 1_000_000;
-    const pct = Math.min(totalTok / CAP * 100, 100).toFixed(1);
-
-    panel.innerHTML = `
-      <div class="billing-stat">
-        <div class="billing-label">${lang === 'zh' ? '本窗口 Token 用量' : 'Tokens This Window'}</div>
-        <div class="billing-value">${fmt(totalTok)}</div>
-        <div class="billing-sub">$${cost.toFixed(4)} ${lang === 'zh' ? '费用' : 'cost'}</div>
-        <div class="gauge-bar">
-          <div class="gauge-fill" style="width:${pct}%"></div>
-        </div>
-        <div style="font-size:9px;color:var(--text-dimmer);margin-top:3px">${pct}% of 1M</div>
-      </div>
-      <div class="billing-stat">
-        <div class="billing-label">${lang === 'zh' ? '输入' : 'Input'}</div>
-        <div style="font-size:13px;font-family:var(--font-mono)">${fmt(s.inputTokens)}</div>
-      </div>
-      <div class="billing-stat">
-        <div class="billing-label">${lang === 'zh' ? '输出' : 'Output'}</div>
-        <div style="font-size:13px;font-family:var(--font-mono)">${fmt(s.outputTokens)}</div>
-      </div>
-      <div class="billing-stat">
-        <div class="billing-label">${lang === 'zh' ? '缓存' : 'Cache'}</div>
-        <div style="font-size:13px;font-family:var(--font-mono)">${fmt((s.cacheReadTokens||0) + (s.cacheCreationTokens||0))}</div>
-      </div>`;
-  }).catch(() => {
-    panel.innerHTML = '<div style="color:var(--text-dimmer);font-size:11px">—</div>';
   });
 }
 
