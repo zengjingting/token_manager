@@ -23,6 +23,8 @@ const T = {
     tipCost:    '本周期内 Claude + Codex 的合计 API 费用',
     tipCache:   '仅 Claude Code 的缓存读取 ÷ (缓存读取 + 缓存创建)',
     tipModels:  '本周期内使用的不同模型数量',
+    tipClaudeCacheSeries: '缓存创建 + 缓存读取',
+    tipCodexCacheSeries:  '仅缓存读取（Codex 无缓存创建字段）',
     navDashboard: '仪表盘', navHistory: '会话历史',
     lProjectChart: '项目成本分布',
   },
@@ -49,6 +51,8 @@ const T = {
     tipCost:    'Combined Claude + Codex API cost for this period',
     tipCache:   'Claude Code only — cache_read ÷ (cache_read + cache_creation)',
     tipModels:  'Distinct models used in this period',
+    tipClaudeCacheSeries: 'cache creation + cache read',
+    tipCodexCacheSeries:  'cache read only (Codex has no creation field)',
     navDashboard: 'Dashboard', navHistory: 'History',
     lProjectChart: 'Project Cost Breakdown',
   }
@@ -100,12 +104,12 @@ let tokenChart = null, modelChart = null;
 let es = null, lastReport = null;
 let overlayTimer = null;
 const TOKEN_SERIES_META = [
-  { key: 'claudeIn',    labelKey: 'dsClaudeIn',    color: 'rgba(217,119,87,0.85)', valueOf: r => r.claude?.inputTokens || 0 },
-  { key: 'claudeOut',   labelKey: 'dsClaudeOut',   color: 'rgba(180,85,50,0.8)',   valueOf: r => r.claude?.outputTokens || 0 },
-  { key: 'claudeCache', labelKey: 'dsClaudeCache', color: 'rgba(217,119,87,0.3)',  valueOf: r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0) },
-  { key: 'codexIn',     labelKey: 'dsCodexIn',     color: 'rgba(59,130,246,0.85)', valueOf: r => r.codex?.inputTokens || 0 },
-  { key: 'codexOut',    labelKey: 'dsCodexOut',    color: 'rgba(59,130,246,0.55)', valueOf: r => r.codex?.outputTokens || 0 },
-  { key: 'codexCache',  labelKey: 'dsCodexCache',  color: 'rgba(59,130,246,0.25)', valueOf: r => r.codex?.cachedInputTokens || 0 }
+  { key: 'claudeIn',    labelKey: 'dsClaudeIn',    color: 'rgba(217,119,87,0.85)', tipKey: null,                   valueOf: r => r.claude?.inputTokens || 0 },
+  { key: 'claudeOut',   labelKey: 'dsClaudeOut',   color: 'rgba(180,85,50,0.8)',   tipKey: null,                   valueOf: r => r.claude?.outputTokens || 0 },
+  { key: 'claudeCache', labelKey: 'dsClaudeCache', color: 'rgba(217,119,87,0.3)',  tipKey: 'tipClaudeCacheSeries', valueOf: r => (r.claude?.cacheReadTokens || 0) + (r.claude?.cacheCreationTokens || 0) },
+  { key: 'codexIn',     labelKey: 'dsCodexIn',     color: 'rgba(59,130,246,0.85)', tipKey: null,                   valueOf: r => r.codex?.inputTokens || 0 },
+  { key: 'codexOut',    labelKey: 'dsCodexOut',    color: 'rgba(59,130,246,0.55)', tipKey: null,                   valueOf: r => r.codex?.outputTokens || 0 },
+  { key: 'codexCache',  labelKey: 'dsCodexCache',  color: 'rgba(59,130,246,0.25)', tipKey: 'tipCodexCacheSeries',  valueOf: r => r.codex?.cachedInputTokens || 0 }
 ];
 const tokenSeriesVisible = Object.fromEntries(TOKEN_SERIES_META.map(s => [s.key, true]));
 
@@ -194,7 +198,9 @@ function renderTokenSeriesControls() {
   if (!wrap || !tokenChart) return;
   wrap.innerHTML = tokenChart.data.datasets.map((ds, idx) => {
     const checked = ds.hidden ? '' : 'checked';
-    return `<label class="series-toggle">
+    const meta = TOKEN_SERIES_META[idx];
+    const titleAttr = meta?.tipKey ? ` title="${t(meta.tipKey)}"` : '';
+    return `<label class="series-toggle"${titleAttr}>
       <input type="checkbox" data-idx="${idx}" ${checked}>
       <span class="series-dot" style="background:${ds.backgroundColor}"></span>
       <span>${ds.label}</span>
