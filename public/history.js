@@ -4,6 +4,17 @@ let historyLoaded = false;
 let allProjects = [];
 let activeSessionId = null;
 
+// ── Custom session title persistence (localStorage) ───────────────────────
+function getCustomTitle(id) {
+  try { return localStorage.getItem('claude-session-name-' + id) || null; } catch { return null; }
+}
+function setCustomTitle(id, title) {
+  try {
+    if (title) localStorage.setItem('claude-session-name-' + id, title);
+    else localStorage.removeItem('claude-session-name-' + id);
+  } catch {}
+}
+
 // ── Load and render session list ──────────────────────────────────────────
 async function loadHistorySessions() {
   if (historyLoaded) return;
@@ -53,10 +64,19 @@ function renderProjectList(projects) {
     </div>`
   ).join('');
 
-  // Delegated click listener for project headers
+  // Delegated click listener for project headers, copy buttons, and session items
   list.addEventListener('click', e => {
     const header = e.target.closest('[data-toggle-dir]');
     if (header) { toggleProject(header.dataset.toggleDir); return; }
+    const copyBtn = e.target.closest('.session-copy-btn[data-copy-id]');
+    if (copyBtn) {
+      e.stopPropagation();
+      const id = copyBtn.dataset.copyId;
+      navigator.clipboard.writeText(id).catch(() => {});
+      copyBtn.textContent = '✓';
+      setTimeout(() => { copyBtn.textContent = '⧉'; }, 1400);
+      return;
+    }
     const item = e.target.closest('.session-item[data-id]');
     if (item) selectSession(item.dataset.proj, item.dataset.id);
   });
@@ -71,15 +91,19 @@ function renderSessionItem(s) {
         { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     : '';
   const tokens = (s.inputTokens||0) + (s.outputTokens||0) + (s.cacheTokens||0);
+  const displayTitle = getCustomTitle(s.id) || s.title;
   // No onclick — handled by delegated listener in renderProjectList
   return `
     <div class="session-item" data-id="${esc(s.id)}" data-proj="${esc(s.projectDir)}">
-      <div class="session-title">${esc(s.title)}</div>
-      <div class="session-meta">
-        <span>${ts}</span>
-        <span>${fmtK(tokens)} tok</span>
-        <span>$${(s.totalCost||0).toFixed(4)}</span>
+      <div class="session-item-main">
+        <div class="session-title">${esc(displayTitle)}</div>
+        <div class="session-meta">
+          <span>${ts}</span>
+          <span>${fmtK(tokens)} tok</span>
+          <span>$${(s.totalCost||0).toFixed(4)}</span>
+        </div>
       </div>
+      <button class="session-copy-btn" data-copy-id="${esc(s.id)}" title="${esc(s.id)}">⧉</button>
     </div>`;
 }
 
@@ -148,17 +172,27 @@ function renderViewer(session) {
     ? new Date(session.lastActivity).toLocaleString('zh-CN')
     : '';
 
+  const customTitle = getCustomTitle(session.id);
+  const displayTitle = customTitle || session.title;
+  const toolCount = session.messages.filter(m => m.type === 'tool_use' || m.type === 'tool_result').length;
+
   const viewer = document.getElementById('historyViewer');
   viewer.innerHTML = `
     <div class="viewer-header">
-      <div>
-        <div class="viewer-title">${esc(session.title)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap">
+          <span class="viewer-title" id="viewerTitleText">${esc(displayTitle)}</span>
+          <button class="rename-btn" id="renameBtn" title="重命名">✎</button>
+        </div>
         <div class="viewer-meta">
           ${ts} · ${fmtK(totalTok)} tokens · $${(session.totalCost||0).toFixed(4)} ·
           ${(session.models||[]).map(m => esc(m.replace(/^claude-/,''))).join(', ')}
         </div>
       </div>
-      <button class="export-btn" id="exportBtn">↓ Markdown</button>
+      <div style="display:flex;gap:6px;align-items:flex-start;flex-shrink:0">
+        ${toolCount > 0 ? `<button class="toggle-tools-btn" id="toggleToolsBtn">展示工具调用记录 (${toolCount})</button>` : ''}
+        <button class="export-btn" id="exportBtn">↓ Markdown</button>
+      </div>
     </div>
     <div id="messageList"></div>
     ${session.messages.length > MESSAGES_PER_PAGE
@@ -166,6 +200,53 @@ function renderViewer(session) {
       : ''}`;
 
   document.getElementById('exportBtn').addEventListener('click', exportMarkdown);
+
+  // Tool messages toggle (hidden by default via CSS)
+  const toggleToolsBtn = document.getElementById('toggleToolsBtn');
+  if (toggleToolsBtn) {
+    toggleToolsBtn.addEventListener('click', () => {
+      const msgList = document.getElementById('messageList');
+      const showing = msgList.classList.toggle('show-tools');
+      toggleToolsBtn.classList.toggle('active', showing);
+      toggleToolsBtn.textContent = showing ? '隐藏工具调用记录' : `展示工具调用记录 (${toolCount})`;
+    });
+  }
+
+  // Contenteditable inline rename
+  const renameBtn = document.getElementById('renameBtn');
+  const titleEl   = document.getElementById('viewerTitleText');
+  if (renameBtn && titleEl) {
+    renameBtn.addEventListener('click', () => {
+      if (titleEl.contentEditable === 'true') return;
+      titleEl.contentEditable = 'true';
+      titleEl.focus();
+      const range = document.createRange();
+      range.selectNodeContents(titleEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    titleEl.addEventListener('blur', () => {
+      if (titleEl.contentEditable !== 'true') return;
+      titleEl.contentEditable = 'false';
+      const newTitle = titleEl.textContent.trim() || session.title;
+      setCustomTitle(session.id, newTitle !== session.title ? newTitle : null);
+      titleEl.textContent = newTitle;
+      const listItem = document.querySelector(`.session-item[data-id="${CSS.escape(session.id)}"]`);
+      if (listItem) {
+        const t = listItem.querySelector('.session-title');
+        if (t) t.textContent = newTitle;
+      }
+    });
+    titleEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+      if (e.key === 'Escape') {
+        titleEl.textContent = getCustomTitle(session.id) || session.title;
+        titleEl.contentEditable = 'false';
+      }
+    });
+  }
+
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMoreMessages);
 
@@ -293,7 +374,29 @@ async function runSearch(query) {
 
   try {
     const data = await fetch(`/api/search?q=${encodeURIComponent(query)}`).then(r => r.json());
-    renderSearchResults(data.results || [], query);
+    const serverResults = data.results || [];
+
+    // Also search local custom names (not already in server results)
+    const serverIds = new Set(serverResults.map(r => r.id));
+    const q = query.toLowerCase();
+    const localMatches = [];
+    for (const proj of allProjects) {
+      for (const s of proj.sessions) {
+        if (serverIds.has(s.id)) continue;
+        const custom = getCustomTitle(s.id);
+        if (custom && custom.toLowerCase().includes(q)) {
+          localMatches.push({
+            id: s.id,
+            projectDir: s.projectDir,
+            projectName: proj.name,
+            title: custom,
+            snippets: []
+          });
+        }
+      }
+    }
+
+    renderSearchResults([...serverResults, ...localMatches], query);
   } catch {
     document.getElementById('historyList').innerHTML =
       '<div class="placeholder" style="padding:24px">搜索失败</div>';
@@ -377,7 +480,7 @@ function exportMarkdown() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${s.id.slice(0, 8)}-${s.title.slice(0, 30).replace(/[^\w\u4e00-\u9fff]/g, '-')}.md`;
+  a.download = `${s.id.slice(0, 8)}-${s.title.slice(0, 30).replace(/[\\/:*?"<>|]+/g, '-')}.md`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
