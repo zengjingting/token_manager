@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { parseSessionFile } from '../readers/chat-reader.js';
+import { parseSessionFile, _setCcusageRunnerForTests, getProjectStats } from '../readers/chat-reader.js';
 
 const FIXTURE_SESSION = [
   JSON.stringify({ type: 'permission-mode', permissionMode: 'default', sessionId: 'test123' }),
@@ -195,5 +195,118 @@ test('parseSessionFile: handles malformed lines without throwing', () => {
     assert.doesNotThrow(() => parseSessionFile(join(dir, 'bad.jsonl')));
   } finally {
     teardown();
+  }
+});
+
+test('getProjectStats: aggregates costs from injected ccusage runner, groups by project dir', () => {
+  const root = join(tmpdir(), `chat-reader-projstat-${Date.now()}`);
+  const projA = join(root, '-Users-x-projA');
+  const projB = join(root, '-Users-x-projB');
+  mkdirSync(projA, { recursive: true });
+  mkdirSync(projB, { recursive: true });
+  writeFileSync(join(projA, 'sess-1.jsonl'),
+    JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: 'Hello' },
+      timestamp: '2026-04-11T10:00:00.000Z'
+    }) + '\n' +
+    JSON.stringify({
+      type: 'assistant',
+      message: {
+        role: 'assistant', model: 'claude-sonnet-4-6',
+        content: [{ type: 'text', text: 'Hi' }],
+        usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+      },
+      timestamp: '2026-04-11T10:00:05.000Z'
+    }) + '\n');
+  writeFileSync(join(projB, 'sess-2.jsonl'),
+    JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: 'Hello' },
+      timestamp: '2026-04-11T10:00:00.000Z'
+    }) + '\n' +
+    JSON.stringify({
+      type: 'assistant',
+      message: {
+        role: 'assistant', model: 'claude-sonnet-4-6',
+        content: [{ type: 'text', text: 'Hi' }],
+        usage: { input_tokens: 20, output_tokens: 8, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+      },
+      timestamp: '2026-04-11T10:00:05.000Z'
+    }) + '\n');
+
+  _setCcusageRunnerForTests(() => ({
+    sessions: [
+      { sessionId: '-Users-x-projA', totalCost: 1.50 },
+      { sessionId: '-Users-x-projB', totalCost: 0.75 }
+    ]
+  }));
+
+  const prev = process.env.CLAUDE_PROJECTS_DIR;
+  process.env.CLAUDE_PROJECTS_DIR = root;
+
+  try {
+    const stats = getProjectStats();
+    assert.equal(stats.length, 2, 'should return exactly 2 projects');
+    const a = stats.find(s => s.dirName === '-Users-x-projA');
+    const b = stats.find(s => s.dirName === '-Users-x-projB');
+    assert.ok(a, 'projA should be present');
+    assert.ok(b, 'projB should be present');
+    assert.equal(a.totalCost, 1.50);
+    assert.equal(b.totalCost, 0.75);
+    assert.equal(a.inputTokens, 10);
+    assert.equal(b.inputTokens, 20);
+    assert.equal(stats[0].dirName, '-Users-x-projA', 'sorted by cost desc');
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
+    else process.env.CLAUDE_PROJECTS_DIR = prev;
+    _setCcusageRunnerForTests(null);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('getProjectStats: nested ccusage sessions fall back to projectPath first segment', () => {
+  const root = join(tmpdir(), `chat-reader-projstat-nested-${Date.now()}`);
+  const projA = join(root, '-Users-x-projA');
+  mkdirSync(projA, { recursive: true });
+  writeFileSync(join(projA, 'sess-1.jsonl'),
+    JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: 'Hello' },
+      timestamp: '2026-04-11T10:00:00.000Z'
+    }) + '\n' +
+    JSON.stringify({
+      type: 'assistant',
+      message: {
+        role: 'assistant', model: 'claude-sonnet-4-6',
+        content: [{ type: 'text', text: 'Hi' }],
+        usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+      },
+      timestamp: '2026-04-11T10:00:05.000Z'
+    }) + '\n');
+
+  _setCcusageRunnerForTests(() => ({
+    sessions: [
+      { sessionId: 'leaf-name', projectPath: '-Users-x-projA/sub-uuid', totalCost: 2.00 },
+      { sessionId: 'orphan', projectPath: 'Unknown Project', totalCost: 99.00 }
+    ]
+  }));
+
+  const prev = process.env.CLAUDE_PROJECTS_DIR;
+  process.env.CLAUDE_PROJECTS_DIR = root;
+
+  try {
+    const stats = getProjectStats();
+    const a = stats.find(s => s.dirName === '-Users-x-projA');
+    assert.ok(a, 'projA should be present');
+    assert.equal(a.totalCost, 2.00, 'nested ccusage entry should map to projA via projectPath');
+    // orphan with 'Unknown Project' + sessionId that doesn't match any dir → ignored
+    const orphan = stats.find(s => s.dirName === 'orphan');
+    assert.ok(!orphan, 'orphan entry with Unknown Project should not appear');
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
+    else process.env.CLAUDE_PROJECTS_DIR = prev;
+    _setCcusageRunnerForTests(null);
+    rmSync(root, { recursive: true, force: true });
   }
 });

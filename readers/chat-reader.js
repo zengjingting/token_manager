@@ -1,8 +1,24 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { getClaudeSessionData } from './cli-runner.js';
 
-const PROJECTS_DIR = join(homedir(), '.claude', 'projects');
+const DEFAULT_PROJECTS_DIR = join(homedir(), '.claude', 'projects');
+function projectsDir() { return process.env.CLAUDE_PROJECTS_DIR || DEFAULT_PROJECTS_DIR; }
+
+let _ccusageRunner = null;
+export function _setCcusageRunnerForTests(fn) { _ccusageRunner = fn; }
+// Fetch all-time session data from ccusage for cost attribution.
+// No date filter is intentional — project stats are an all-time aggregate.
+function fetchCcusageSessions() {
+  if (_ccusageRunner) return _ccusageRunner();
+  try {
+    return getClaudeSessionData(undefined, undefined);
+  } catch (err) {
+    console.error('[chat-reader] ccusage session fetch failed:', err.message);
+    return { sessions: [] };
+  }
+}
 
 const SKIP_PATH_SEGMENTS = new Set([
   'users',
@@ -147,13 +163,13 @@ export function parseSessionFile(filePath) {
 }
 
 export function listSessions() {
-  if (!existsSync(PROJECTS_DIR)) return { projects: [] };
+  if (!existsSync(projectsDir())) return { projects: [] };
 
-  const dirs = readdirSync(PROJECTS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory());
+  const dirs = readdirSync(projectsDir(), { withFileTypes: true }).filter((d) => d.isDirectory());
   const projects = [];
 
   for (const dir of dirs) {
-    const dirPath = join(PROJECTS_DIR, dir.name);
+    const dirPath = join(projectsDir(), dir.name);
     let files;
     try {
       files = readdirSync(dirPath).filter((f) => f.endsWith('.jsonl'));
@@ -199,7 +215,7 @@ export function listSessions() {
 }
 
 export function readSession(projectDir, sessionId) {
-  const filePath = join(PROJECTS_DIR, projectDir, `${sessionId}.jsonl`);
+  const filePath = join(projectsDir(), projectDir, `${sessionId}.jsonl`);
   if (!existsSync(filePath)) return null;
 
   const parsed = parseSessionFile(filePath);
@@ -219,14 +235,14 @@ export function readSession(projectDir, sessionId) {
 
 export function searchSessions(query) {
   if (!query?.trim()) return { query: query || '', results: [] };
-  if (!existsSync(PROJECTS_DIR)) return { query, results: [] };
+  if (!existsSync(projectsDir())) return { query, results: [] };
 
   const q = query.trim().toLowerCase();
   const results = [];
-  const dirs = readdirSync(PROJECTS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory());
+  const dirs = readdirSync(projectsDir(), { withFileTypes: true }).filter((d) => d.isDirectory());
 
   for (const dir of dirs) {
-    const dirPath = join(PROJECTS_DIR, dir.name);
+    const dirPath = join(projectsDir(), dir.name);
     let files;
     try {
       files = readdirSync(dirPath).filter((f) => f.endsWith('.jsonl'));
@@ -273,61 +289,67 @@ export function searchSessions(query) {
 }
 
 export function getProjectStats() {
-  if (!existsSync(PROJECTS_DIR)) return [];
+  const dir = projectsDir();
+  if (!existsSync(dir)) return [];
 
-  const dirs = readdirSync(PROJECTS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory());
-  const stats = [];
-
-  for (const dir of dirs) {
-    const dirPath = join(PROJECTS_DIR, dir.name);
+  // 1. Build token counts from local JSONL scan
+  const dirs = readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory());
+  const byDir = new Map();
+  for (const d of dirs) {
+    const dirPath = join(dir, d.name);
     let files;
     try {
       files = readdirSync(dirPath).filter((f) => f.endsWith('.jsonl'));
     } catch {
       continue;
     }
-
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let cacheTokens = 0;
-    let totalCost = 0;
-
+    let inputTokens = 0, outputTokens = 0, cacheTokens = 0;
     for (const file of files) {
       try {
         const parsed = parseSessionFile(join(dirPath, file));
-        inputTokens += parsed.inputTokens;
+        inputTokens  += parsed.inputTokens;
         outputTokens += parsed.outputTokens;
-        cacheTokens += parsed.cacheTokens;
-        totalCost += parsed.totalCost;
+        cacheTokens  += parsed.cacheTokens;
       } catch {
         continue;
       }
     }
-
     if (inputTokens + outputTokens > 0) {
-      stats.push({
-        name: decodeDirName(dir.name),
-        dirName: dir.name,
+      byDir.set(d.name, {
+        name: decodeDirName(d.name),
+        dirName: d.name,
         inputTokens,
         outputTokens,
         cacheTokens,
-        totalCost,
+        totalCost: 0,
         sessionCount: files.length
       });
     }
   }
 
-  return stats.sort((a, b) => b.totalCost - a.totalCost);
+  // 2. Pull costs from ccusage and attribute to the correct project dir
+  const ccusage = fetchCcusageSessions();
+  for (const s of (ccusage?.sessions || [])) {
+    let key = s.sessionId;
+    if (!byDir.has(key) && s.projectPath && s.projectPath !== 'Unknown Project') {
+      key = String(s.projectPath).split('/')[0];
+    }
+    if (byDir.has(key)) {
+      byDir.get(key).totalCost += Number(s.totalCost) || 0;
+    }
+  }
+
+  return [...byDir.values()].sort((a, b) => b.totalCost - a.totalCost);
 }
 
 export function getDailyActivity(sinceMs) {
-  if (!existsSync(PROJECTS_DIR)) return [];
+  if (!existsSync(projectsDir())) return [];
 
   const byDate = {};
-  const dirs = readdirSync(PROJECTS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory());
+  const dirs = readdirSync(projectsDir(), { withFileTypes: true }).filter((d) => d.isDirectory());
 
   for (const dir of dirs) {
-    const dirPath = join(PROJECTS_DIR, dir.name);
+    const dirPath = join(projectsDir(), dir.name);
     let files;
     try {
       files = readdirSync(dirPath).filter((f) => f.endsWith('.jsonl'));
