@@ -154,10 +154,18 @@ function renderStats(report) {
   document.getElementById('sTokens').textContent    = fmt(s.totalTokens);
   document.getElementById('sTokensSub').textContent =
     `${t('inSub')}:${fmt(s.inputTokens)} ${t('outSub')}:${fmt(s.outputTokens)}`;
+
   document.getElementById('sCost').textContent = fmtCost(s.totalCost);
-  const cacheTotal = (s.cacheReadTokens || 0) + (s.cacheCreationTokens || 0);
+  document.getElementById('lCostSub').textContent =
+    `Claude Code: ${fmtCost(s.claudeCost || 0)} · Codex: ${fmtCost(s.codexCost || 0)}`;
+
+  // Claude-only cache hit rate (Codex has no creation tokens; including it skews the ratio)
+  const claudeRead   = s.claudeCacheReadTokens || 0;
+  const claudeCreate = s.cacheCreationTokens   || 0;  // already Claude-only in summary
+  const claudeCacheTotal = claudeRead + claudeCreate;
   document.getElementById('sCache').textContent =
-    cacheTotal > 0 ? ((s.cacheReadTokens || 0) / cacheTotal * 100).toFixed(1) + '%' : '—';
+    claudeCacheTotal > 0 ? (claudeRead / claudeCacheTotal * 100).toFixed(1) + '%' : '—';
+
   document.getElementById('sModels').textContent     = report.models.length;
   document.getElementById('sModelNames').textContent =
     report.models.slice(0, 2).map(m => shortModel(m.name)).join(', ');
