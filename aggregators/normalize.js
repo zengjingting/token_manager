@@ -121,23 +121,34 @@ function buildModels(claudeRaw, codexRaw) {
 
 /** Build summary totals from merged daily rows */
 function buildSummary(daily) {
-  let inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0, totalCost = 0;
+  let inputTokens = 0, outputTokens = 0;
+  let cacheCreationTokens = 0, cacheReadTokens = 0;
+  let claudeCacheReadTokens = 0;
+  let claudeCost = 0, codexCost = 0;
   for (const day of daily) {
     if (day.claude) {
-      inputTokens         += day.claude.inputTokens;
-      outputTokens        += day.claude.outputTokens;
-      cacheCreationTokens += day.claude.cacheCreationTokens;
-      cacheReadTokens     += day.claude.cacheReadTokens;
-      totalCost           += day.claude.totalCost;
+      inputTokens           += day.claude.inputTokens;
+      outputTokens          += day.claude.outputTokens;
+      cacheCreationTokens   += day.claude.cacheCreationTokens;
+      cacheReadTokens       += day.claude.cacheReadTokens;
+      claudeCacheReadTokens += day.claude.cacheReadTokens;
+      claudeCost            += day.claude.totalCost;
     }
     if (day.codex) {
       inputTokens     += day.codex.inputTokens;
       outputTokens    += day.codex.outputTokens;
-      cacheReadTokens += day.codex.cachedInputTokens || 0;  // Codex cache hits = read, not creation
-      totalCost       += day.codex.totalCost;
+      cacheReadTokens += day.codex.cachedInputTokens || 0;
+      codexCost       += day.codex.totalCost;
     }
   }
-  return { inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens, totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens, totalCost };
+  return {
+    inputTokens, outputTokens,
+    cacheCreationTokens, cacheReadTokens,
+    claudeCacheReadTokens,
+    totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
+    totalCost: claudeCost + codexCost,
+    claudeCost, codexCost
+  };
 }
 
 /** Normalize ccusage session output */
@@ -264,12 +275,15 @@ export function buildReportFromHourly({ period, claudeHourly, codexHourly = { su
       outputTokens: (claudeSummary.outputTokens || 0) + (codexSummary.outputTokens || 0),
       cacheCreationTokens: claudeSummary.cacheCreationTokens || 0,
       cacheReadTokens: (claudeSummary.cacheReadTokens || 0) + (codexSummary.cacheReadTokens || 0),
+      claudeCacheReadTokens: claudeSummary.cacheReadTokens || 0,
       totalTokens:
         (claudeSummary.inputTokens || 0) + (codexSummary.inputTokens || 0) +
         (claudeSummary.outputTokens || 0) + (codexSummary.outputTokens || 0) +
         (claudeSummary.cacheCreationTokens || 0) +
         (claudeSummary.cacheReadTokens || 0) + (codexSummary.cacheReadTokens || 0),
-      totalCost
+      totalCost,
+      claudeCost: claudeSummary.totalCost || 0,
+      codexCost: codexSummary.totalCost || 0
     },
     models,
     daily,

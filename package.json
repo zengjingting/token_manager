@@ -7,7 +7,7 @@
     "start": "node server.js",
     "predev": "lsof -ti:3333 | xargs kill -9 2>/dev/null || true",
     "dev": "node --watch server.js",
-    "test": "node --test tests/chat-reader.test.js"
+    "test": "node --test tests/chat-reader.test.js tests/normalize.test.js"
   },
   "dependencies": {
     "express": "^4.19.2"
