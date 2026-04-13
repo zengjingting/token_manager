@@ -327,7 +327,10 @@ export function getProjectStats() {
     }
   }
 
-  // 2. Pull costs from ccusage and attribute to the correct project dir
+  // 2. Pull costs from ccusage and attribute to the correct project dir.
+  // ccusage returns one entry per physical session (JSONL file or worktree).
+  // A project may have multiple entries (main session + subagent sessions) — all
+  // are accumulated intentionally; this is not double-counting.
   const ccusage = fetchCcusageSessions();
   for (const s of (ccusage?.sessions || [])) {
     let key = s.sessionId;

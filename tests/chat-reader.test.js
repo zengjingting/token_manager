@@ -1,10 +1,14 @@
-import { test } from 'node:test';
+import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { parseSessionFile, _setCcusageRunnerForTests, getProjectStats } from '../readers/chat-reader.js';
+
+// Unconditional cleanup guards so no test can leak state to the next
+beforeEach(() => { _setCcusageRunnerForTests(null); delete process.env.CLAUDE_PROJECTS_DIR; });
+afterEach(() =>  { _setCcusageRunnerForTests(null); delete process.env.CLAUDE_PROJECTS_DIR; });
 
 const FIXTURE_SESSION = [
   JSON.stringify({ type: 'permission-mode', permissionMode: 'default', sessionId: 'test123' }),
