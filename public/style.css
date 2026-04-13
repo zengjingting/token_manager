@@ -348,6 +348,6 @@ body { overflow: hidden; }
   flex: none;
 }
 .stat-info-icon:hover {
-  border-color: var(--accent, #D97757);
-  color: var(--accent, #D97757);
+  border-color: var(--orange);
+  color: var(--orange);
 }
