@@ -160,8 +160,9 @@ function renderStats(report) {
     `${t('inSub')}:${fmt(s.inputTokens)} ${t('outSub')}:${fmt(s.outputTokens)}`;
 
   document.getElementById('sCost').textContent = fmtCost(s.totalCost);
+  const codexCostLine = s.codexCost > 0 ? ` · Codex: ${fmtCost(s.codexCost)}` : '';
   document.getElementById('lCostSub').textContent =
-    `Claude Code: ${fmtCost(s.claudeCost || 0)} · Codex: ${fmtCost(s.codexCost || 0)}`;
+    `Claude Code: ${fmtCost(s.claudeCost || 0)}${codexCostLine}`;
 
   // Claude-only cache hit rate (Codex has no creation tokens; including it skews the ratio)
   const claudeRead   = s.claudeCacheReadTokens || 0;
@@ -374,7 +375,8 @@ document.getElementById('applyCustom').addEventListener('click', () => {
 // ── Boot ──────────────────────────────────────────────────────────────────
 applyStaticLabels();
 connect('1d');
-loadProjectChart();
+// Defer until after first paint so the canvas has a computed layout width
+requestAnimationFrame(() => loadProjectChart());
 
 // ── Stat-card tooltips: icon-triggered (Wave 1) ───────────────────────────
 document.querySelectorAll('.stat-info-icon').forEach(icon => {
@@ -413,18 +415,18 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
-// ── Project cost chart (loaded once on boot) ───────────────────────────────
+// ── Project cost chart (loaded once; retries if first load produced no chart) ─
 let projectChartInst = null;
-let projectChartLoaded = false;
+let projectChartLoading = false;
 
 async function loadProjectChart() {
-  if (projectChartLoaded) return;
-  projectChartLoaded = true;
+  if (projectChartInst || projectChartLoading) return;
+  projectChartLoading = true;
   try {
     const data = await fetch('/api/analytics/projects').then(r => r.json()).catch(() => ({ projects: [] }));
     renderProjectChart(data.projects || []);
-  } catch {
-    projectChartLoaded = false;
+  } finally {
+    projectChartLoading = false;
   }
 }
 
@@ -437,7 +439,8 @@ function renderProjectChart(projects) {
                   '#EC4899','#14B8A6','#F97316','#6366F1','#84CC16','#06B6D4',
                   '#A855F7','#22C55E','#EAB308'];
 
-  projectChartInst = new Chart(document.getElementById('projectChart'), {
+  const canvas = document.getElementById('projectChart');
+  projectChartInst = new Chart(canvas, {
     type: 'bar',
     data: {
       labels: top.map(p => p.name),
@@ -464,5 +467,7 @@ function renderProjectChart(projects) {
       }
     }
   });
+  // Force resize in case canvas had no computed width when created
+  requestAnimationFrame(() => projectChartInst?.resize());
 }
 

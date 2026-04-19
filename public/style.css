@@ -330,6 +330,7 @@ body { overflow: hidden; }
   align-items: center;
   gap: 6px;
 }
+.stat-label-row .stat-label { margin-bottom: 0; }
 .stat-info-icon {
   display: inline-flex;
   align-items: center;
