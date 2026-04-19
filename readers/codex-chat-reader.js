@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { decodeDirName } from './chat-reader.js';
 
@@ -14,6 +14,21 @@ function cwdToEncodedDir(cwd) {
 function parseLine(line) {
   if (!line.trim()) return null;
   try { return JSON.parse(line); } catch { return null; }
+}
+
+function toSessionId(baseDir, filePath) {
+  const rel = relative(baseDir, filePath);
+  if (!rel || rel.startsWith('..')) return null;
+  return rel.replace(/\.jsonl$/, '').split(sep).join('/');
+}
+
+function toSessionFilePath(sessionId) {
+  if (typeof sessionId !== 'string' || !sessionId) return null;
+  if (sessionId.startsWith('/') || sessionId.includes('\\')) return null;
+
+  const parts = sessionId.split('/');
+  if (parts.some((p) => !p || p === '.' || p === '..')) return null;
+  return `${join(sessionsDir(), ...parts)}.jsonl`;
 }
 
 export function parseCodexSessionFile(filePath) {
@@ -167,7 +182,8 @@ export function listCodexSessions() {
   const byProject = new Map();
 
   for (const file of files) {
-    const relId = file.replace(`${dir}/`, '').replace(/\.jsonl$/, '');
+    const relId = toSessionId(dir, file);
+    if (!relId) continue;
     try {
       const parsed = parseCodexSessionFile(file);
       const encodedDir = cwdToEncodedDir(parsed.cwd) || 'codex';
@@ -208,7 +224,8 @@ export function listCodexSessions() {
 }
 
 export function readCodexSession(sessionId) {
-  const filePath = join(sessionsDir(), `${sessionId}.jsonl`);
+  const filePath = toSessionFilePath(sessionId);
+  if (!filePath) return null;
   if (!existsSync(filePath)) return null;
 
   const parsed = parseCodexSessionFile(filePath);
@@ -237,7 +254,8 @@ export function searchCodexSessions(query) {
   const results = [];
 
   for (const file of files) {
-    const relId = file.replace(`${dir}/`, '').replace(/\.jsonl$/, '');
+    const relId = toSessionId(dir, file);
+    if (!relId) continue;
     try {
       const parsed = parseCodexSessionFile(file);
       const snippets = [];

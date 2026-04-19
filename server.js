@@ -6,6 +6,7 @@ import { readClaudeUsageSince } from './readers/claude-reader.js';
 import { readCodexUsageSince } from './readers/codex-reader.js';
 import { getClaudeDailyData, getClaudeSessionData, getCodexDailyData, getCodexSessionData } from './readers/cli-runner.js';
 import { listSessions, readSession, searchSessions, getProjectStats, getDailyActivity } from './readers/chat-reader.js';
+import { listCodexSessions, readCodexSession, searchCodexSessions } from './readers/codex-chat-reader.js';
 import { buildReportFromCLI, buildReportFromHourly } from './aggregators/normalize.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,19 @@ const ISO_DATE_RE   = /^\d{4}-\d{2}-\d{2}$/;
 // Fix 4: SSE connection cap to prevent DoS via runaway CLI spawns
 let sseCount = 0;
 const SSE_MAX = 5;
+
+function lettersOnlyKey(value) {
+  const key = String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+  return key || '';
+}
+
+function projectMergeKey(project) {
+  const byName = lettersOnlyKey(project?.name);
+  if (byName) return byName;
+  const byDir = lettersOnlyKey(project?.dirName);
+  if (byDir) return byDir;
+  return `raw:${String(project?.dirName || '').toLowerCase()}`;
+}
 
 function getDateRange(period, since, until) {
   const now   = new Date();
@@ -104,7 +118,33 @@ app.get('/api/stream', (req, res) => {
 
 app.get('/api/history/sessions', (_req, res) => {
   try {
-    res.json(listSessions());
+    const claude = listSessions();
+    const codex = listCodexSessions();
+
+    const merged = new Map();
+    for (const proj of (claude.projects || [])) {
+      merged.set(projectMergeKey(proj), { ...proj, sessions: [...proj.sessions] });
+    }
+    for (const proj of (codex.projects || [])) {
+      const key = projectMergeKey(proj);
+      if (merged.has(key)) {
+        merged.get(key).sessions.push(...proj.sessions);
+      } else {
+        merged.set(key, { ...proj, sessions: [...proj.sessions] });
+      }
+    }
+
+    const projects = [...merged.values()];
+    for (const proj of projects) {
+      proj.sessions.sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+    }
+    projects.sort((a, b) => {
+      const aLast = a.sessions[0]?.lastActivity || '';
+      const bLast = b.sessions[0]?.lastActivity || '';
+      return bLast.localeCompare(aLast);
+    });
+
+    res.json({ projects });
   } catch (err) {
     console.error('[/api/history/sessions]', err);
     res.status(500).json({ error: 'Internal error' });
@@ -112,14 +152,25 @@ app.get('/api/history/sessions', (_req, res) => {
 });
 
 app.get('/api/history/session', (req, res) => {
-  const { project, id } = req.query;
-  if (!project || !id || /[./\\]/.test(project) || /[./\\]/.test(id)) {
+  const { project, id, source } = req.query;
+  if (!id) {
     res.status(400).json({ error: 'Invalid parameters' });
     return;
   }
 
   try {
-    const session = readSession(project, id);
+    let session;
+    if (source === 'codex') {
+      session = readCodexSession(id);
+    } else {
+      if (!project || /[./\\]/.test(project) || /[./\\]/.test(id)) {
+        res.status(400).json({ error: 'Invalid parameters' });
+        return;
+      }
+      session = readSession(project, id);
+      if (session) session.source = 'claude';
+    }
+
     if (!session) {
       res.status(404).json({ error: 'Session not found' });
       return;
@@ -134,7 +185,11 @@ app.get('/api/history/session', (req, res) => {
 app.get('/api/search', (req, res) => {
   const q = String(req.query.q || '').slice(0, 200);
   try {
-    res.json(searchSessions(q));
+    const claude = searchSessions(q);
+    const codex = searchCodexSessions(q);
+    const results = [...(claude.results || []), ...(codex.results || [])];
+    results.sort((a, b) => (b.lastActivity || '').localeCompare(a.lastActivity || ''));
+    res.json({ query: q, results });
   } catch (err) {
     console.error('[/api/search]', err);
     res.status(500).json({ error: 'Internal error' });

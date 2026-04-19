@@ -403,6 +403,18 @@ test('readCodexSession: returns null for non-existent session', () => {
   }
 });
 
+test('readCodexSession: rejects unsafe session ids', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    assert.equal(readCodexSession('../secrets'), null);
+    assert.equal(readCodexSession('/abs/path'), null);
+    assert.equal(readCodexSession('2026//04/10/sess-a'), null);
+  } finally {
+    teardownListDir();
+  }
+});
+
 test('searchCodexSessions: finds matching text and returns snippets with source', () => {
   const dir = setupListDir();
   process.env.CODEX_SESSIONS_DIR = dir;

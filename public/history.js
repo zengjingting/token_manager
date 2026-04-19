@@ -4,6 +4,41 @@ let historyLoaded = false;
 let allProjects = [];
 let activeSessionId = null;
 
+function lettersOnlyKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function projectMergeKey(project) {
+  const byName = lettersOnlyKey(project?.name);
+  if (byName) return byName;
+  const byDir = lettersOnlyKey(project?.dirName);
+  if (byDir) return byDir;
+  return `raw:${String(project?.dirName || '').toLowerCase()}`;
+}
+
+function mergeProjectsByLetters(projects) {
+  const merged = new Map();
+  for (const proj of (projects || [])) {
+    const key = projectMergeKey(proj);
+    if (!merged.has(key)) {
+      merged.set(key, { ...proj, sessions: [...(proj.sessions || [])] });
+    } else {
+      merged.get(key).sessions.push(...(proj.sessions || []));
+    }
+  }
+
+  const output = [...merged.values()];
+  for (const proj of output) {
+    proj.sessions.sort((a, b) => (b.lastActivity || '').localeCompare(a.lastActivity || ''));
+  }
+  output.sort((a, b) => {
+    const aLast = a.sessions[0]?.lastActivity || '';
+    const bLast = b.sessions[0]?.lastActivity || '';
+    return bLast.localeCompare(aLast);
+  });
+  return output;
+}
+
 // ── Custom session title persistence (localStorage) ───────────────────────
 function getCustomTitle(id) {
   try { return localStorage.getItem('claude-session-name-' + id) || null; } catch { return null; }
@@ -23,7 +58,7 @@ async function loadHistorySessions() {
 
   try {
     const data = await fetch('/api/history/sessions').then(r => r.json());
-    allProjects = data.projects || [];
+    allProjects = mergeProjectsByLetters(data.projects || []);
     renderProjectList(allProjects);
   } catch {
     document.getElementById('historyList').innerHTML =
@@ -78,7 +113,7 @@ function renderProjectList(projects) {
       return;
     }
     const item = e.target.closest('.session-item[data-id]');
-    if (item) selectSession(item.dataset.proj, item.dataset.id);
+    if (item) selectSession(item.dataset.proj, item.dataset.id, item.dataset.source);
   });
 
   // Auto-open the first project
@@ -92,12 +127,16 @@ function renderSessionItem(s) {
     : '';
   const tokens = (s.inputTokens||0) + (s.outputTokens||0) + (s.cacheTokens||0);
   const displayTitle = getCustomTitle(s.id) || s.title;
+  const source = s.source || 'claude';
   // No onclick — handled by delegated listener in renderProjectList
   return `
-    <div class="session-item" data-id="${esc(s.id)}" data-proj="${esc(s.projectDir)}">
+    <div class="session-item" data-id="${esc(s.id)}" data-proj="${esc(s.projectDir)}" data-source="${esc(source)}">
       <div class="session-item-main">
-        <div class="session-title">${esc(displayTitle)}</div>
+        <div class="session-title">
+          <span class="session-title-text">${esc(displayTitle)}</span>
+        </div>
         <div class="session-meta">
+          <span class="badge badge-${esc(source)} badge-mini">${esc(source).toUpperCase()}</span>
           <span>${ts}</span>
           <span>${fmtK(tokens)} tok</span>
           <span>$${(s.totalCost||0).toFixed(4)}</span>
@@ -128,7 +167,7 @@ function esc(str) {
 }
 
 // ── Session selection ──────────────────────────────────────────────────────
-async function selectSession(projectDir, sessionId) {
+async function selectSession(projectDir, sessionId, source) {
   document.querySelectorAll('.session-item, .session-search-item').forEach(el =>
     el.classList.remove('active'));
   // Read from data-* attributes via delegated listener — no CSS selector injection risk
@@ -140,9 +179,13 @@ async function selectSession(projectDir, sessionId) {
   renderViewerLoading();
 
   try {
-    const session = await fetch(
-      `/api/history/session?project=${encodeURIComponent(projectDir)}&id=${encodeURIComponent(sessionId)}`
-    ).then(r => {
+    const params = new URLSearchParams({ id: sessionId });
+    if (source === 'codex') {
+      params.set('source', 'codex');
+    } else {
+      params.set('project', projectDir);
+    }
+    const session = await fetch(`/api/history/session?${params}`).then(r => {
       if (!r.ok) throw new Error(r.status);
       return r.json();
     });
@@ -185,6 +228,7 @@ function renderViewer(session) {
           <button class="rename-btn" id="renameBtn" title="重命名">✎</button>
         </div>
         <div class="viewer-meta">
+          <span class="badge badge-${esc(session.source || 'claude')} badge-mini">${esc(session.source || 'claude').toUpperCase()}</span>
           ${ts} · ${fmtK(totalTok)} tokens · $${(session.totalCost||0).toFixed(4)} ·
           ${(session.models||[]).map(m => esc(m.replace(/^claude-/,''))).join(', ')}
         </div>
@@ -234,7 +278,7 @@ function renderViewer(session) {
       titleEl.textContent = newTitle;
       const listItem = document.querySelector(`.session-item[data-id="${CSS.escape(session.id)}"]`);
       if (listItem) {
-        const t = listItem.querySelector('.session-title');
+        const t = listItem.querySelector('.session-title-text');
         if (t) t.textContent = newTitle;
       }
     });
@@ -360,7 +404,7 @@ function initHistorySearch() {
   if (list) {
     list.addEventListener('click', e => {
       const item = e.target.closest('.session-search-item[data-id]');
-      if (item) selectSession(item.dataset.proj, item.dataset.id);
+      if (item) selectSession(item.dataset.proj, item.dataset.id, item.dataset.source);
     });
   }
 }
@@ -388,6 +432,7 @@ async function runSearch(query) {
           localMatches.push({
             id: s.id,
             projectDir: s.projectDir,
+            source: s.source || 'claude',
             projectName: proj.name,
             title: custom,
             snippets: []
@@ -421,9 +466,12 @@ function renderSearchResults(results, query) {
 
   list.innerHTML = `<div style="font-size:10px;color:var(--text-dimmer);padding:6px 14px">找到 ${results.length} 个会话</div>` +
     results.map(r => `
-      <div class="session-search-item" data-id="${esc(r.id)}" data-proj="${esc(r.projectDir)}">
+      <div class="session-search-item" data-id="${esc(r.id)}" data-proj="${esc(r.projectDir)}" data-source="${esc(r.source || 'claude')}">
         <div class="search-result-project">${esc(r.projectName)}</div>
-        <div class="search-result-title">${esc(r.title)}</div>
+        <div class="search-result-title">
+          <span class="badge badge-${esc(r.source || 'claude')}">${esc(r.source || 'claude').toUpperCase()}</span>
+          ${esc(r.title)}
+        </div>
         ${r.snippets.map(s =>
           `<div class="search-snippet">...${highlight(s)}...</div>`
         ).join('')}
@@ -442,6 +490,7 @@ function exportMarkdown() {
   lines.push('');
   lines.push(`**Session:** \`${s.id}\`  `);
   lines.push(`**Project:** ${s.projectDir}  `);
+  lines.push(`**Source:** ${s.source === 'codex' ? 'Codex' : 'Claude Code'}  `);
   lines.push(`**Last Activity:** ${s.lastActivity}  `);
   lines.push(`**Models:** ${(s.models||[]).join(', ')}  `);
   lines.push(`**Tokens:** ${(s.inputTokens||0)+(s.outputTokens||0)+(s.cacheTokens||0)}  `);

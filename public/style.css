@@ -207,7 +207,7 @@ body { overflow: hidden; }
 /* ── History tab layout ── */
 .history-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 320px 1fr;
   height: calc(100vh - 45px); /* subtract context-bar height */
   overflow: hidden;
 }
@@ -250,7 +250,8 @@ body { overflow: hidden; }
 .session-item.active { background: var(--orange-faint); border-left-color: var(--orange); }
 .session-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .session-title { color: var(--text); font-size: 11px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.session-meta { display: flex; gap: 8px; color: var(--text-dimmer); font-size: 10px; font-family: var(--font-mono); }
+.session-meta { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; color: var(--text-dimmer); font-size: 10px; font-family: var(--font-mono); white-space: nowrap; overflow: hidden; }
+.badge-mini { padding: 0 5px; font-size: 8px; line-height: 13px; border-radius: 999px; }
 .session-copy-btn {
   flex-shrink: 0; background: none; border: none; cursor: pointer;
   color: var(--text-dimmer); font-size: 13px; line-height: 1;
