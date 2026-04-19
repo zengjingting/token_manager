@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { decodeDirName } from './chat-reader.js';
 
 const DEFAULT_SESSIONS_DIR = join(homedir(), '.codex', 'sessions');
 function sessionsDir() { return process.env.CODEX_SESSIONS_DIR || DEFAULT_SESSIONS_DIR; }
@@ -133,4 +134,143 @@ export function parseCodexSessionFile(filePath) {
     lastActivity,
     cwd
   };
+}
+
+function getAllJsonlFiles(dir) {
+  const results = [];
+  try {
+    for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+      if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+        results.push(join(entry.parentPath ?? entry.path, entry.name));
+      }
+    }
+  } catch {
+    // directory may not exist
+  }
+  return results;
+}
+
+function extractTitle(messages) {
+  for (const msg of messages) {
+    if (msg.role === 'user' && msg.type === 'text' && msg.content?.trim().length > 5) {
+      return msg.content.trim().slice(0, 80);
+    }
+  }
+  return 'Untitled';
+}
+
+export function listCodexSessions() {
+  const dir = sessionsDir();
+  if (!existsSync(dir)) return { projects: [] };
+
+  const files = getAllJsonlFiles(dir);
+  const byProject = new Map();
+
+  for (const file of files) {
+    const relId = file.replace(`${dir}/`, '').replace(/\.jsonl$/, '');
+    try {
+      const parsed = parseCodexSessionFile(file);
+      const encodedDir = cwdToEncodedDir(parsed.cwd) || 'codex';
+
+      if (!byProject.has(encodedDir)) {
+        byProject.set(encodedDir, { dirName: encodedDir, name: decodeDirName(encodedDir), sessions: [] });
+      }
+
+      byProject.get(encodedDir).sessions.push({
+        id: relId,
+        projectDir: encodedDir,
+        source: 'codex',
+        title: extractTitle(parsed.messages),
+        lastActivity: parsed.lastActivity || new Date(0).toISOString(),
+        messageCount: parsed.messages.length,
+        inputTokens: parsed.inputTokens,
+        outputTokens: parsed.outputTokens,
+        cacheTokens: parsed.cacheTokens,
+        totalCost: parsed.totalCost,
+        models: parsed.models
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  const projects = [...byProject.values()];
+  for (const proj of projects) {
+    proj.sessions.sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+  }
+  projects.sort((a, b) => {
+    const aLast = a.sessions[0]?.lastActivity || '';
+    const bLast = b.sessions[0]?.lastActivity || '';
+    return bLast.localeCompare(aLast);
+  });
+
+  return { projects };
+}
+
+export function readCodexSession(sessionId) {
+  const filePath = join(sessionsDir(), `${sessionId}.jsonl`);
+  if (!existsSync(filePath)) return null;
+
+  const parsed = parseCodexSessionFile(filePath);
+  return {
+    id: sessionId,
+    projectDir: cwdToEncodedDir(parsed.cwd) || 'codex',
+    source: 'codex',
+    title: extractTitle(parsed.messages),
+    messages: parsed.messages,
+    inputTokens: parsed.inputTokens,
+    outputTokens: parsed.outputTokens,
+    cacheTokens: parsed.cacheTokens,
+    totalCost: parsed.totalCost,
+    models: parsed.models,
+    lastActivity: parsed.lastActivity || new Date(0).toISOString()
+  };
+}
+
+export function searchCodexSessions(query) {
+  if (!query?.trim()) return { query: query || '', results: [] };
+  const dir = sessionsDir();
+  if (!existsSync(dir)) return { query, results: [] };
+
+  const q = query.trim().toLowerCase();
+  const files = getAllJsonlFiles(dir);
+  const results = [];
+
+  for (const file of files) {
+    const relId = file.replace(`${dir}/`, '').replace(/\.jsonl$/, '');
+    try {
+      const parsed = parseCodexSessionFile(file);
+      const snippets = [];
+
+      for (const msg of parsed.messages) {
+        if (msg.type !== 'text' || !msg.content) continue;
+        const lower = msg.content.toLowerCase();
+        const idx = lower.indexOf(q);
+        if (idx === -1) continue;
+
+        const start = Math.max(0, idx - 40);
+        const end = Math.min(msg.content.length, idx + q.length + 40);
+        snippets.push(msg.content.slice(start, end).replace(/\n+/g, ' '));
+        if (snippets.length >= 3) break;
+      }
+
+      if (snippets.length > 0) {
+        const encodedDir = cwdToEncodedDir(parsed.cwd) || 'codex';
+        results.push({
+          id: relId,
+          projectDir: encodedDir,
+          source: 'codex',
+          projectName: decodeDirName(encodedDir),
+          title: extractTitle(parsed.messages),
+          lastActivity: parsed.lastActivity || '',
+          snippets
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  results.sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+  return { query, results };
 }

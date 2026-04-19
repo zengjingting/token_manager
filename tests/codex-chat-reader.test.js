@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { parseCodexSessionFile } from '../readers/codex-chat-reader.js';
+import { parseCodexSessionFile, listCodexSessions, readCodexSession, searchCodexSessions } from '../readers/codex-chat-reader.js';
 
 const FIXTURE_SESSION = [
   JSON.stringify({
@@ -283,5 +283,147 @@ test('parseCodexSessionFile: handles malformed lines without throwing', () => {
     assert.doesNotThrow(() => parseCodexSessionFile(filePath));
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Helper: build a minimal Codex session JSONL
+function buildCodexSession({ cwd, userMsg, assistantMsg, model }) {
+  return [
+    JSON.stringify({
+      timestamp: '2026-04-10T01:00:00.000Z',
+      type: 'session_meta',
+      payload: { id: 'test-id', cwd, cli_version: '0.118.0', source: 'cli', model_provider: 'openai' }
+    }),
+    JSON.stringify({
+      timestamp: '2026-04-10T01:00:01.000Z',
+      type: 'turn_context',
+      payload: { turn_id: 'turn-1', model: model || 'gpt-5.3-codex' }
+    }),
+    JSON.stringify({
+      timestamp: '2026-04-10T01:00:02.000Z',
+      type: 'response_item',
+      payload: {
+        type: 'message', role: 'user',
+        content: [{ type: 'input_text', text: userMsg }]
+      }
+    }),
+    JSON.stringify({
+      timestamp: '2026-04-10T01:00:03.000Z',
+      type: 'response_item',
+      payload: {
+        type: 'message', role: 'assistant',
+        content: [{ type: 'output_text', text: assistantMsg }]
+      }
+    }),
+    JSON.stringify({
+      timestamp: '2026-04-10T01:00:04.000Z',
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          last_token_usage: { input_tokens: 100, output_tokens: 50, cached_input_tokens: 80, total_tokens: 230 },
+          total_token_usage: { input_tokens: 100, output_tokens: 50, cached_input_tokens: 80, total_tokens: 230 }
+        }
+      }
+    })
+  ].join('\n');
+}
+
+let listTmpDir;
+
+function setupListDir() {
+  listTmpDir = join(tmpdir(), `codex-list-test-${Date.now()}`);
+  const dir1 = join(listTmpDir, '2026', '04', '10');
+  const dir2 = join(listTmpDir, '2026', '04', '09');
+  mkdirSync(dir1, { recursive: true });
+  mkdirSync(dir2, { recursive: true });
+
+  writeFileSync(join(dir1, 'sess-a.jsonl'),
+    buildCodexSession({ cwd: '/Users/x/projA', userMsg: 'Hello from projA', assistantMsg: 'Hi A' }));
+  writeFileSync(join(dir2, 'sess-b.jsonl'),
+    buildCodexSession({ cwd: '/Users/x/projA', userMsg: 'Second session projA', assistantMsg: 'Hi again' }));
+  writeFileSync(join(dir1, 'sess-c.jsonl'),
+    buildCodexSession({ cwd: '/Users/x/projB', userMsg: 'Hello from projB', assistantMsg: 'Hi B' }));
+
+  return listTmpDir;
+}
+
+function teardownListDir() {
+  if (listTmpDir && existsSync(listTmpDir)) {
+    rmSync(listTmpDir, { recursive: true, force: true });
+  }
+}
+
+beforeEach(() => { delete process.env.CODEX_SESSIONS_DIR; });
+afterEach(() => { delete process.env.CODEX_SESSIONS_DIR; });
+
+test('listCodexSessions: groups sessions by cwd, each has source codex', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    const { projects } = listCodexSessions();
+    assert.equal(projects.length, 2, 'should have 2 projects');
+    const projA = projects.find(p => p.dirName === '-Users-x-projA');
+    const projB = projects.find(p => p.dirName === '-Users-x-projB');
+    assert.ok(projA, 'projA should exist');
+    assert.ok(projB, 'projB should exist');
+    assert.equal(projA.sessions.length, 2);
+    assert.equal(projB.sessions.length, 1);
+    for (const s of [...projA.sessions, ...projB.sessions]) {
+      assert.equal(s.source, 'codex');
+    }
+  } finally {
+    teardownListDir();
+  }
+});
+
+test('readCodexSession: returns full session with messages and source', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    const session = readCodexSession('2026/04/10/sess-a');
+    assert.ok(session, 'session should exist');
+    assert.equal(session.source, 'codex');
+    assert.ok(session.messages.length > 0);
+    const userMsg = session.messages.find(m => m.role === 'user' && m.type === 'text');
+    assert.equal(userMsg.content, 'Hello from projA');
+  } finally {
+    teardownListDir();
+  }
+});
+
+test('readCodexSession: returns null for non-existent session', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    const session = readCodexSession('2026/04/10/nonexistent');
+    assert.equal(session, null);
+  } finally {
+    teardownListDir();
+  }
+});
+
+test('searchCodexSessions: finds matching text and returns snippets with source', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    const { results } = searchCodexSessions('projB');
+    assert.equal(results.length, 1);
+    assert.equal(results[0].source, 'codex');
+    assert.ok(results[0].snippets.length > 0);
+    assert.ok(results[0].snippets[0].includes('projB'));
+  } finally {
+    teardownListDir();
+  }
+});
+
+test('searchCodexSessions: returns empty for no match', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    const { results } = searchCodexSessions('xyznonexistent');
+    assert.equal(results.length, 0);
+  } finally {
+    teardownListDir();
   }
 });

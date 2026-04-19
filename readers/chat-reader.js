@@ -42,7 +42,7 @@ function parseLine(line) {
   }
 }
 
-function decodeDirName(dirName) {
+export function decodeDirName(dirName) {
   const parts = dirName.replace(/^-/, '').split('-').filter(Boolean);
 
   let i = 0;
@@ -186,6 +186,7 @@ export function listSessions() {
         sessions.push({
           id: sessionId,
           projectDir: dir.name,
+          source: 'claude',
           title: extractTitle(parsed.messages),
           lastActivity: parsed.lastActivity || new Date(0).toISOString(),
           messageCount: parsed.messages.length,
@@ -272,6 +273,7 @@ export function searchSessions(query) {
           results.push({
             id: sessionId,
             projectDir: dir.name,
+            source: 'claude',
             projectName: decodeDirName(dir.name),
             title: extractTitle(parsed.messages),
             lastActivity: parsed.lastActivity || '',
