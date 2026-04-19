@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { parseCodexSessionFile, listCodexSessions, readCodexSession, searchCodexSessions } from '../readers/codex-chat-reader.js';
+import { parseCodexSessionFile, listCodexSessions, readCodexSession, deleteCodexSession, searchCodexSessions } from '../readers/codex-chat-reader.js';
 
 const FIXTURE_SESSION = [
   JSON.stringify({
@@ -410,6 +410,31 @@ test('readCodexSession: rejects unsafe session ids', () => {
     assert.equal(readCodexSession('../secrets'), null);
     assert.equal(readCodexSession('/abs/path'), null);
     assert.equal(readCodexSession('2026//04/10/sess-a'), null);
+  } finally {
+    teardownListDir();
+  }
+});
+
+test('deleteCodexSession: removes target session file and returns true', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  const filePath = join(dir, '2026', '04', '10', 'sess-a.jsonl');
+  try {
+    assert.equal(existsSync(filePath), true);
+    assert.equal(deleteCodexSession('2026/04/10/sess-a'), true);
+    assert.equal(existsSync(filePath), false);
+  } finally {
+    teardownListDir();
+  }
+});
+
+test('deleteCodexSession: rejects unsafe session ids', () => {
+  const dir = setupListDir();
+  process.env.CODEX_SESSIONS_DIR = dir;
+  try {
+    assert.equal(deleteCodexSession('../secrets'), false);
+    assert.equal(deleteCodexSession('/abs/path'), false);
+    assert.equal(deleteCodexSession('2026//04/10/sess-a'), false);
   } finally {
     teardownListDir();
   }

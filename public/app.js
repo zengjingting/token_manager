@@ -152,6 +152,38 @@ function shortSession(id) {
   return (id || '').split('/').pop()?.slice(-14) || (id || '').slice(-14) || '—';
 }
 
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getStoredSessionTitle(sessionId) {
+  if (!sessionId) return '';
+  try {
+    return localStorage.getItem(`claude-session-name-${sessionId}`) || '';
+  } catch {
+    return '';
+  }
+}
+
+function terminalSessionId(sessionId, source) {
+  if ((source || 'claude') !== 'codex') return sessionId;
+  const tail = String(sessionId || '').split('/').filter(Boolean).pop();
+  return tail || sessionId;
+}
+
+async function jumpToHistorySession({ id, source, projectDir }) {
+  if (!id) return;
+  switchView('history');
+  if (typeof openHistorySession === 'function') {
+    await openHistorySession({ id, source: source || 'claude', projectDir: projectDir || '' });
+  }
+}
+
 // ── Render stats ──────────────────────────────────────────────────────────
 function renderStats(report) {
   const s = report.summary;
@@ -307,11 +339,23 @@ function renderSessions(report) {
       ? new Date(s.lastActivity).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US',
           { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
       : '—';
+    const customTitle = getStoredSessionTitle(s.id);
+    const displayTitle = customTitle || shortSession(s.id);
     // Fix 2: strip 'claude-' prefix from model names in session table
     const models = (s.models || []).map(m => m.replace(/^claude-/, '')).join(', ');
+    const source = s.source || 'claude';
+    const hoverSessionId = terminalSessionId(s.id, source);
     return `<tr>
-      <td><span class="badge badge-${s.source}">${s.source.toUpperCase()}</span></td>
-      <td style="color:var(--text-dim);font-size:10px" title="${s.id}">${shortSession(s.id)}</td>
+      <td><span class="badge badge-${source}">${source.toUpperCase()}</span></td>
+      <td style="color:var(--text-dim);font-size:10px">
+        <button
+          class="session-jump-btn"
+          data-id="${escHtml(s.id)}"
+          data-source="${escHtml(source)}"
+          data-project="${escHtml(s.projectDir || '')}"
+          title="${escHtml(hoverSessionId)}"
+        >${escHtml(displayTitle)}</button>
+      </td>
       <td>${fmt(total)}</td>
       <td>${fmt(s.inputTokens)}</td>
       <td>${fmt(s.outputTokens)}</td>
@@ -321,6 +365,16 @@ function renderSessions(report) {
       <td style="color:var(--text-dim);font-size:10px">${models}</td>
     </tr>`;
   }).join('');
+
+  tbody.onclick = (e) => {
+    const btn = e.target.closest('.session-jump-btn[data-id]');
+    if (!btn) return;
+    jumpToHistorySession({
+      id: btn.dataset.id,
+      source: btn.dataset.source || 'claude',
+      projectDir: btn.dataset.project || ''
+    }).catch(() => {});
+  };
 }
 
 // ── Render full report ────────────────────────────────────────────────────
@@ -415,6 +469,10 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
+window.addEventListener('session-title-updated', () => {
+  if (lastReport) renderSessions(lastReport);
+});
+
 // ── Project cost chart (loaded once; retries if first load produced no chart) ─
 let projectChartInst = null;
 let projectChartLoading = false;
@@ -470,4 +528,3 @@ function renderProjectChart(projects) {
   // Force resize in case canvas had no computed width when created
   requestAnimationFrame(() => projectChartInst?.resize());
 }
-

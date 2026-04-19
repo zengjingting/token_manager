@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { parseSessionFile, _setCcusageRunnerForTests, getProjectStats } from '../readers/chat-reader.js';
+import { parseSessionFile, readSessionById, deleteSession, decodeDirName, _setCcusageRunnerForTests, getProjectStats } from '../readers/chat-reader.js';
 
 // Unconditional cleanup guards so no test can leak state to the next
 beforeEach(() => { _setCcusageRunnerForTests(null); delete process.env.CLAUDE_PROJECTS_DIR; });
@@ -202,6 +202,24 @@ test('parseSessionFile: handles malformed lines without throwing', () => {
   }
 });
 
+test('decodeDirName: strips Claude-Projects prefix and keeps last project folder style name', () => {
+  assert.equal(
+    decodeDirName('-Users-ting-Documents-Claude-Projects-granola-cn'),
+    'granola-cn'
+  );
+  assert.equal(
+    decodeDirName('-Users-ting-Documents-Claude_Projects-granola_cn'),
+    'granola_cn'
+  );
+});
+
+test('decodeDirName: keeps non-Claude-project names', () => {
+  assert.equal(
+    decodeDirName('-Users-ting-Documents-Token-dashboard'),
+    'Token-dashboard'
+  );
+});
+
 test('getProjectStats: aggregates costs from injected ccusage runner, groups by project dir', () => {
   const root = join(tmpdir(), `chat-reader-projstat-${Date.now()}`);
   const projA = join(root, '-Users-x-projA');
@@ -311,6 +329,53 @@ test('getProjectStats: nested ccusage sessions fall back to projectPath first se
     if (prev === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
     else process.env.CLAUDE_PROJECTS_DIR = prev;
     _setCcusageRunnerForTests(null);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('readSessionById: finds Claude session without project parameter', () => {
+  const root = join(tmpdir(), `chat-reader-find-by-id-${Date.now()}`);
+  const proj = join(root, '-Users-x-projA');
+  mkdirSync(proj, { recursive: true });
+  writeFileSync(join(proj, 'sess-42.jsonl'),
+    JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: 'hello' },
+      timestamp: '2026-04-11T10:00:00.000Z'
+    }) + '\n');
+
+  const prev = process.env.CLAUDE_PROJECTS_DIR;
+  process.env.CLAUDE_PROJECTS_DIR = root;
+
+  try {
+    const session = readSessionById('sess-42');
+    assert.ok(session, 'session should be found by id');
+    assert.equal(session.id, 'sess-42');
+    assert.equal(session.projectDir, '-Users-x-projA');
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
+    else process.env.CLAUDE_PROJECTS_DIR = prev;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('deleteSession: removes target Claude session file', () => {
+  const root = join(tmpdir(), `chat-reader-delete-${Date.now()}`);
+  const proj = join(root, '-Users-x-projA');
+  mkdirSync(proj, { recursive: true });
+  const filePath = join(proj, 'sess-del.jsonl');
+  writeFileSync(filePath, FIXTURE_SESSION, 'utf-8');
+
+  const prev = process.env.CLAUDE_PROJECTS_DIR;
+  process.env.CLAUDE_PROJECTS_DIR = root;
+
+  try {
+    assert.equal(existsSync(filePath), true);
+    assert.equal(deleteSession('-Users-x-projA', 'sess-del'), true);
+    assert.equal(existsSync(filePath), false);
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_PROJECTS_DIR;
+    else process.env.CLAUDE_PROJECTS_DIR = prev;
     rmSync(root, { recursive: true, force: true });
   }
 });

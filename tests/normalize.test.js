@@ -61,3 +61,57 @@ test('buildReportFromHourly summary exposes claudeCost, codexCost, claudeCacheRe
   assert.equal(report.summary.claudeCacheReadTokens, 1000);
   assert.equal(report.summary.cacheReadTokens, 1500); // claude 1000 + codex 500
 });
+
+test('buildReportFromCLI sessions: Claude IDs derive from UUID sessionId/projectPath and drop aggregate rows', () => {
+  const report = buildReportFromCLI({
+    period: '1d',
+    claudeDaily: SAMPLE_CLAUDE_DAILY,
+    codexDaily: SAMPLE_CODEX_DAILY,
+    claudeSessions: {
+      sessions: [
+        // project aggregate row (no concrete session UUID) -> should be filtered out
+        {
+          sessionId: '-Users-x-projA',
+          projectPath: 'Unknown Project',
+          inputTokens: 10,
+          outputTokens: 5,
+          cacheCreationTokens: 1,
+          cacheReadTokens: 2,
+          totalCost: 0.1,
+          lastActivity: '2026-04-12',
+          modelsUsed: ['claude-sonnet-4-6']
+        },
+        // subagents row -> session id should come from projectPath tail UUID
+        {
+          sessionId: 'subagents',
+          projectPath: '-Users-x-projA/61003f6b-9375-425b-9d58-90b0bb19980e',
+          inputTokens: 20,
+          outputTokens: 8,
+          cacheCreationTokens: 3,
+          cacheReadTokens: 4,
+          totalCost: 0.2,
+          lastActivity: '2026-04-12',
+          modelsUsed: ['claude-sonnet-4-6']
+        },
+        // direct UUID row -> keep as-is
+        {
+          sessionId: '8996f841-4ed7-4b99-a036-6db0d79c7fa4',
+          projectPath: 'Unknown Project',
+          inputTokens: 30,
+          outputTokens: 9,
+          cacheCreationTokens: 5,
+          cacheReadTokens: 6,
+          totalCost: 0.3,
+          lastActivity: '2026-04-12',
+          modelsUsed: ['claude-sonnet-4-6']
+        }
+      ]
+    },
+    codexSessions: { sessions: [] }
+  });
+
+  const claudeSessions = report.sessions.filter((s) => s.source === 'claude');
+  assert.equal(claudeSessions.length, 2, 'aggregate row should be dropped');
+  assert.ok(claudeSessions.some((s) => s.id === '61003f6b-9375-425b-9d58-90b0bb19980e'));
+  assert.ok(claudeSessions.some((s) => s.id === '8996f841-4ed7-4b99-a036-6db0d79c7fa4'));
+});

@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url';
 import { readClaudeUsageSince } from './readers/claude-reader.js';
 import { readCodexUsageSince } from './readers/codex-reader.js';
 import { getClaudeDailyData, getClaudeSessionData, getCodexDailyData, getCodexSessionData } from './readers/cli-runner.js';
-import { listSessions, readSession, searchSessions, getProjectStats, getDailyActivity } from './readers/chat-reader.js';
-import { listCodexSessions, readCodexSession, searchCodexSessions } from './readers/codex-chat-reader.js';
+import { listSessions, readSession, readSessionById, deleteSession, searchSessions, getProjectStats, getDailyActivity } from './readers/chat-reader.js';
+import { listCodexSessions, readCodexSession, deleteCodexSession, searchCodexSessions } from './readers/codex-chat-reader.js';
 import { buildReportFromCLI, buildReportFromHourly } from './aggregators/normalize.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -163,11 +163,19 @@ app.get('/api/history/session', (req, res) => {
     if (source === 'codex') {
       session = readCodexSession(id);
     } else {
-      if (!project || /[./\\]/.test(project) || /[./\\]/.test(id)) {
+      if (/[./\\]/.test(id)) {
         res.status(400).json({ error: 'Invalid parameters' });
         return;
       }
-      session = readSession(project, id);
+      if (project) {
+        if (/[./\\]/.test(project)) {
+          res.status(400).json({ error: 'Invalid parameters' });
+          return;
+        }
+        session = readSession(project, id);
+      } else {
+        session = readSessionById(id);
+      }
       if (session) session.source = 'claude';
     }
 
@@ -178,6 +186,47 @@ app.get('/api/history/session', (req, res) => {
     res.json(session);
   } catch (err) {
     console.error('[/api/history/session]', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.delete('/api/history/session', (req, res) => {
+  const { project, id, source } = req.query;
+  if (!id) {
+    res.status(400).json({ error: 'Invalid parameters' });
+    return;
+  }
+
+  try {
+    let deleted = false;
+
+    if (source === 'codex') {
+      deleted = deleteCodexSession(id);
+    } else {
+      if (/[./\\]/.test(id)) {
+        res.status(400).json({ error: 'Invalid parameters' });
+        return;
+      }
+
+      let resolvedProject = project;
+      if (!resolvedProject) {
+        const session = readSessionById(id);
+        if (session) resolvedProject = session.projectDir;
+      }
+      if (!resolvedProject || /[./\\]/.test(resolvedProject)) {
+        res.status(404).json({ error: 'Session not found' });
+        return;
+      }
+      deleted = deleteSession(resolvedProject, id);
+    }
+
+    if (!deleted) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[/api/history/session DELETE]', err);
     res.status(500).json({ error: 'Internal error' });
   }
 });

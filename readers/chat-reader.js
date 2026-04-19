@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { getClaudeSessionData } from './cli-runner.js';
@@ -54,7 +54,15 @@ export function decodeDirName(dirName) {
     i++;
   }
 
-  const result = parts.slice(i).join('-');
+  let result = parts.slice(i).join('-');
+  if (!result) return dirName;
+
+  // Common Claude project roots are not useful as display labels.
+  result = result
+    .replace(/^claude[-_ ]*projects[-_ ]*/i, '')
+    .replace(/^claude_projects[-_ ]*/i, '')
+    .replace(/^claudeprojects[-_ ]*/i, '');
+
   return result || dirName;
 }
 
@@ -232,6 +240,34 @@ export function readSession(projectDir, sessionId) {
     models: parsed.models,
     lastActivity: parsed.lastActivity || new Date(0).toISOString()
   };
+}
+
+export function readSessionById(sessionId) {
+  if (!sessionId || /[./\\]/.test(sessionId)) return null;
+  if (!existsSync(projectsDir())) return null;
+
+  const dirs = readdirSync(projectsDir(), { withFileTypes: true }).filter((d) => d.isDirectory());
+  for (const dir of dirs) {
+    const filePath = join(projectsDir(), dir.name, `${sessionId}.jsonl`);
+    if (!existsSync(filePath)) continue;
+    return readSession(dir.name, sessionId);
+  }
+  return null;
+}
+
+export function deleteSession(projectDir, sessionId) {
+  if (!projectDir || !sessionId) return false;
+  if (/[./\\]/.test(projectDir) || /[./\\]/.test(sessionId)) return false;
+
+  const filePath = join(projectsDir(), projectDir, `${sessionId}.jsonl`);
+  if (!existsSync(filePath)) return false;
+
+  try {
+    unlinkSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function searchSessions(query) {

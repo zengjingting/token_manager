@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { readFileSync, readdirSync, existsSync, unlinkSync, rmdirSync } from 'node:fs';
+import { join, relative, sep, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { decodeDirName } from './chat-reader.js';
 
@@ -29,6 +29,25 @@ function toSessionFilePath(sessionId) {
   const parts = sessionId.split('/');
   if (parts.some((p) => !p || p === '.' || p === '..')) return null;
   return `${join(sessionsDir(), ...parts)}.jsonl`;
+}
+
+function cleanupEmptyParents(filePath, rootDir) {
+  let current = dirname(filePath);
+  while (current && current !== rootDir && current.startsWith(`${rootDir}${sep}`)) {
+    let entries;
+    try {
+      entries = readdirSync(current);
+    } catch {
+      break;
+    }
+    if (entries.length > 0) break;
+    try {
+      rmdirSync(current);
+    } catch {
+      break;
+    }
+    current = dirname(current);
+  }
 }
 
 export function parseCodexSessionFile(filePath) {
@@ -242,6 +261,20 @@ export function readCodexSession(sessionId) {
     models: parsed.models,
     lastActivity: parsed.lastActivity || new Date(0).toISOString()
   };
+}
+
+export function deleteCodexSession(sessionId) {
+  const filePath = toSessionFilePath(sessionId);
+  if (!filePath) return false;
+  if (!existsSync(filePath)) return false;
+
+  try {
+    unlinkSync(filePath);
+    cleanupEmptyParents(filePath, sessionsDir());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function searchCodexSessions(query) {

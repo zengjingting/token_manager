@@ -152,18 +152,64 @@ function buildSummary(daily) {
 }
 
 /** Normalize ccusage session output */
+const CLAUDE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function firstProjectSegment(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'Unknown Project') return '';
+  const first = trimmed.split('/')[0];
+  return first.startsWith('-') ? first : '';
+}
+
+function lastPathSegment(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim().replace(/\/+$/, '');
+  if (!trimmed || trimmed === 'Unknown Project') return '';
+  const parts = trimmed.split('/').filter(Boolean);
+  return parts[parts.length - 1] || '';
+}
+
+function deriveClaudeSessionId(session) {
+  const sid = String(session?.sessionId || '').trim();
+  if (CLAUDE_UUID_RE.test(sid)) return sid;
+  const tail = lastPathSegment(session?.projectPath);
+  if (CLAUDE_UUID_RE.test(tail)) return tail;
+  return '';
+}
+
+function deriveClaudeProjectDir(session, resolvedSessionId) {
+  const byPath = firstProjectSegment(session?.projectPath);
+  if (byPath) return byPath;
+
+  const direct = firstProjectSegment(session?.projectDir);
+  if (direct) return direct;
+
+  // Fallback: if sessionId itself is an encoded dir and this row is not a session UUID.
+  const sid = String(session?.sessionId || '');
+  if (sid.startsWith('-') && sid !== resolvedSessionId) return sid;
+  return '';
+}
+
 function normalizeClaudeSessions(raw) {
   if (!raw?.sessions) return [];
-  return raw.sessions.map(s => ({
-    id:           s.sessionId,
-    source:       'claude',
-    inputTokens:  s.inputTokens  || 0,
-    outputTokens: s.outputTokens || 0,
-    cacheTokens:  (s.cacheCreationTokens || 0) + (s.cacheReadTokens || 0),
-    totalCost:    s.totalCost    || 0,
-    lastActivity: s.lastActivity,
-    models:       s.modelsUsed  || []
-  }));
+  return raw.sessions
+    .map((s) => {
+      const id = deriveClaudeSessionId(s);
+      return {
+        id,
+        projectDir: deriveClaudeProjectDir(s, id),
+        source: 'claude',
+        inputTokens: s.inputTokens || 0,
+        outputTokens: s.outputTokens || 0,
+        cacheTokens: (s.cacheCreationTokens || 0) + (s.cacheReadTokens || 0),
+        totalCost: s.totalCost || 0,
+        lastActivity: s.lastActivity,
+        models: s.modelsUsed || []
+      };
+    })
+    // Drop project-aggregate rows that cannot map to a concrete session UUID.
+    .filter((s) => !!s.id);
 }
 
 /** Normalize @ccusage/codex session output */
@@ -171,6 +217,7 @@ function normalizeCodexSessions(raw) {
   if (!raw?.sessions) return [];
   return raw.sessions.map(s => ({
     id:           s.sessionId,
+    projectDir:   firstProjectSegment(s.projectPath),
     source:       'codex',
     inputTokens:  s.inputTokens       || 0,
     outputTokens: s.outputTokens      || 0,
