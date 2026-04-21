@@ -3,4 +3,16 @@ node_modules/
 *.log
 .env
 .env.local
+.env*.local
 .worktrees
+
+# Build output
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
